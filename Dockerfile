@@ -1,4 +1,3 @@
-Set-Content -Path Dockerfile -Value @"
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY . .
@@ -10,4 +9,3 @@ WORKDIR /app
 COPY --from=build /app/publish .
 EXPOSE 10000
 CMD ["dotnet", "SocialGraphPlatform.API.dll"]
-"@

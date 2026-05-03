@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="../../../../../../../../SocialGraphPlatform/SocialGraphPlatform.API/SocialGraphPlatform.API.csproj" />
+  <Project Path="../../../../../../../../SocialGraphPlatform/SocialGraphPlatform.Application/SocialGraphPlatform.Application.csproj" Id="95b5ff2a-a021-4d0c-9097-4164de0b9093" />
+  <Project Path="../../../../../../../../SocialGraphPlatform/SocialGraphPlatform.Domain/SocialGraphPlatform.Domain.csproj" Id="1cbfb955-6642-4018-be1e-0abae1239059" />
+  <Project Path="../../../../../../../../SocialGraphPlatform/SocialGraphPlatform.Infrastructure/SocialGraphPlatform.Infrastructure.csproj" Id="595f494c-4c70-402d-bd47-2701309d6929" />
+</Solution>

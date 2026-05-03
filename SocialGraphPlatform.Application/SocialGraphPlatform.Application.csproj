@@ -1,0 +1,34 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<NoWarn>$(NoWarn);NU1605;NU1608;NU1902</NoWarn>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="AutoMapper" Version="16.1.1" />
+
+		<PackageReference Include="FluentValidation" Version="12.1.1" />
+		<PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
+
+		<PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.14.0" />
+		<PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.14.0" />
+		<PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.14.0" />
+
+		<PackageReference Include="MediatR" Version="14.1.0" />
+
+		<PackageReference Include="System.Linq.Dynamic.Core" Version="1.6.0" />
+
+		<PackageReference Include="Microsoft.Extensions.Identity.Stores" Version="10.0.6" />
+
+		<PackageReference Include="DocuSign.eSign.dll" Version="8.7.0" />
+		<PackageReference Include="EcoCore" Version="7.2.0.17329" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\SocialGraphPlatform.Domain\SocialGraphPlatform.Domain.csproj" />
+	</ItemGroup>
+
+</Project>

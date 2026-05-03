@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+[onClick] {
+    cursor: pointer !important;
+    position: relative;
+    z-index: 10;
+}
+
+/* Chặn tất cả placeholder images */
+img[src*="via.placeholder.com"] {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+}
+
+/* Hoặc thay thế bằng background */
+img[src*="via.placeholder.com"] {
+    content: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%231A1825'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%23FF1493' font-size='14'%3ENo Image%3C/text%3E%3C/svg%3E") !important;
+}

@@ -1,0 +1,6 @@
+@SocialGraphPlatform.API_HostAddress = http://localhost:5212
+
+GET {{SocialGraphPlatform.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

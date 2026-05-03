@@ -1,0 +1,11 @@
+﻿# Visual Studio
+.vs/
+obj/
+bin/
+*.user
+*.suo
+*.vsidx
+
+# Build outputs
+out/
+publish/

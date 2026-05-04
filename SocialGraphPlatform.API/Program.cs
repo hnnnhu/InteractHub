@@ -25,6 +25,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Npgsql.EntityFrameworkCore.PostgreSQL;
 
 var builder = WebApplication.CreateBuilder(args);
 var configuration = builder.Configuration;
@@ -32,8 +33,13 @@ var configuration = builder.Configuration;
 // ================================================================
 // 1. DATABASE
 // ================================================================
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
+var connectionString = configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("Connection string not found.");
+
+{
+    builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseNpgsql(connectionString));
+}
 
 // ================================================================
 // 2. IDENTITY

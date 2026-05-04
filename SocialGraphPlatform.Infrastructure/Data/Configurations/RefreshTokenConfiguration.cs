@@ -1,5 +1,4 @@
-﻿// SocialGraphPlatform.Infrastructure/Data/Configurations/RefreshTokenConfiguration.cs
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SocialGraphPlatform.Domain.Entities;
 
@@ -11,10 +10,8 @@ public class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshToken>
     {
         builder.ToTable("RefreshTokens");
 
-        // Primary Key
         builder.HasKey(rt => rt.Id);
 
-        // Properties
         builder.Property(rt => rt.Token)
                .IsRequired()
                .HasMaxLength(500);
@@ -31,7 +28,7 @@ public class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshToken>
 
         builder.Property(rt => rt.CreatedAt)
                .IsRequired()
-               .HasDefaultValueSql("GETUTCDATE()");
+               .HasDefaultValueSql("NOW()");
 
         builder.Property(rt => rt.RevokedAt)
                .IsRequired(false);
@@ -45,18 +42,15 @@ public class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshToken>
         builder.Property(rt => rt.DeviceId)
                .HasMaxLength(100);
 
-        // Indexes
         builder.HasIndex(rt => rt.Token)
                .IsUnique();
 
         builder.HasIndex(rt => rt.UserId);
-
         builder.HasIndex(rt => rt.ExpiresAt);
 
         builder.HasIndex(rt => new { rt.UserId, rt.IsRevoked, rt.ExpiresAt })
                .HasDatabaseName("IX_RefreshTokens_UserId_Active");
 
-        // Relationship
         builder.HasOne(rt => rt.User)
                .WithMany()
                .HasForeignKey(rt => rt.UserId)

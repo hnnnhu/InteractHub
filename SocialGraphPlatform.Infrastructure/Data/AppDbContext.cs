@@ -51,19 +51,19 @@ namespace SocialGraphPlatform.Infrastructure.Data
             // ==================== ÁP DỤNG CẤU HÌNH TỪ ASSEMBLY ====================
             modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
 
-            // ==================== CẤU HÌNH BẢNG IDENTITY ====================
-            modelBuilder.Entity<User>(entity => entity.ToTable("Users"));
-            modelBuilder.Entity<IdentityRole<Guid>>(entity => entity.ToTable("Roles"));
-            modelBuilder.Entity<IdentityUserRole<Guid>>(entity => entity.ToTable("UserRoles"));
-            modelBuilder.Entity<IdentityUserClaim<Guid>>(entity => entity.ToTable("UserClaims"));
-            modelBuilder.Entity<IdentityUserLogin<Guid>>(entity => entity.ToTable("UserLogins"));
-            modelBuilder.Entity<IdentityRoleClaim<Guid>>(entity => entity.ToTable("RoleClaims"));
-            modelBuilder.Entity<IdentityUserToken<Guid>>(entity => entity.ToTable("UserTokens"));
+            // ==================== CẤU HÌNH BẢNG IDENTITY (có schema public cho PostgreSQL) ====================
+            modelBuilder.Entity<User>(entity => entity.ToTable("Users", "public"));
+            modelBuilder.Entity<IdentityRole<Guid>>(entity => entity.ToTable("Roles", "public"));
+            modelBuilder.Entity<IdentityUserRole<Guid>>(entity => entity.ToTable("UserRoles", "public"));
+            modelBuilder.Entity<IdentityUserClaim<Guid>>(entity => entity.ToTable("UserClaims", "public"));
+            modelBuilder.Entity<IdentityUserLogin<Guid>>(entity => entity.ToTable("UserLogins", "public"));
+            modelBuilder.Entity<IdentityRoleClaim<Guid>>(entity => entity.ToTable("RoleClaims", "public"));
+            modelBuilder.Entity<IdentityUserToken<Guid>>(entity => entity.ToTable("UserTokens", "public"));
 
             // ==================== CẤU HÌNH USER SESSION ====================
             modelBuilder.Entity<UserSession>(entity =>
             {
-                entity.ToTable("UserSessions");
+                entity.ToTable("UserSessions", "public");
                 entity.HasIndex(e => e.TokenId).IsUnique();
                 entity.HasIndex(e => e.UserId);
                 entity.HasOne(e => e.User)
@@ -75,8 +75,8 @@ namespace SocialGraphPlatform.Infrastructure.Data
             // ==================== CẤU HÌNH NOTIFICATION SETTINGS (1-1 với User) ====================
             modelBuilder.Entity<NotificationSettings>(entity =>
             {
-                entity.ToTable("NotificationSettings");
-                entity.HasIndex(e => e.UserId).IsUnique(); // 1-1
+                entity.ToTable("NotificationSettings", "public");
+                entity.HasIndex(e => e.UserId).IsUnique();
                 entity.HasOne(e => e.User)
                       .WithOne()
                       .HasForeignKey<NotificationSettings>(e => e.UserId)
@@ -86,13 +86,12 @@ namespace SocialGraphPlatform.Infrastructure.Data
             // ==================== CẤU HÌNH USER MUTE ====================
             modelBuilder.Entity<UserMute>(entity =>
             {
-                entity.ToTable("UserMutes");
-                // Mỗi cặp (UserId, MutedUserId) là duy nhất
+                entity.ToTable("UserMutes", "public");
                 entity.HasIndex(e => new { e.UserId, e.MutedUserId }).IsUnique();
                 entity.HasOne(e => e.User)
                       .WithMany()
                       .HasForeignKey(e => e.UserId)
-                      .OnDelete(DeleteBehavior.Restrict); // Không cascade khi xóa User
+                      .OnDelete(DeleteBehavior.Restrict);
                 entity.HasOne(e => e.MutedUser)
                       .WithMany()
                       .HasForeignKey(e => e.MutedUserId)
@@ -102,7 +101,7 @@ namespace SocialGraphPlatform.Infrastructure.Data
             // ==================== CẤU HÌNH USER DEVICE ====================
             modelBuilder.Entity<UserDevice>(entity =>
             {
-                entity.ToTable("UserDevices");
+                entity.ToTable("UserDevices", "public");
                 entity.HasIndex(e => e.UserId);
                 entity.HasIndex(e => e.DeviceToken);
                 entity.HasOne(e => e.User)
@@ -114,7 +113,7 @@ namespace SocialGraphPlatform.Infrastructure.Data
             // ==================== CẤU HÌNH PUSH NOTIFICATION LOG ====================
             modelBuilder.Entity<PushNotificationLog>(entity =>
             {
-                entity.ToTable("PushNotificationLogs");
+                entity.ToTable("PushNotificationLogs", "public");
                 entity.HasIndex(e => e.UserId);
                 entity.HasIndex(e => e.NotificationId);
                 entity.HasOne(e => e.User)
@@ -146,7 +145,6 @@ namespace SocialGraphPlatform.Infrastructure.Data
             foreach (var foreignKey in modelBuilder.Model.GetEntityTypes()
                 .SelectMany(e => e.GetForeignKeys()))
             {
-                // Chỉ giữ Cascade cho UserSession, còn lại Restrict để an toàn
                 if (foreignKey.DeclaringEntityType.ClrType != typeof(UserSession))
                 {
                     foreignKey.DeleteBehavior = DeleteBehavior.Restrict;

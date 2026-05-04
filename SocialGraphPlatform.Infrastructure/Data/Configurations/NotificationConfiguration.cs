@@ -4,9 +4,6 @@ using SocialGraphPlatform.Domain.Entities;
 
 namespace SocialGraphPlatform.Infrastructure.Data.Configurations
 {
-    /// <summary>
-    /// Cấu hình mapping cho thực thể Notification (Thông báo)
-    /// </summary>
     public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
     {
         public void Configure(EntityTypeBuilder<Notification> builder)
@@ -20,10 +17,10 @@ namespace SocialGraphPlatform.Infrastructure.Data.Configurations
             builder.Property(n => n.ReceiverId)
                    .IsRequired();
 
-            builder.Property(n => n.TriggeredById);           // Có thể null (thông báo hệ thống)
+            builder.Property(n => n.TriggeredById);
 
             builder.Property(n => n.Type)
-                   .HasConversion<string>()                   // Dễ debug và migrate
+                   .HasConversion<string>()
                    .IsRequired();
 
             builder.Property(n => n.Content)
@@ -42,30 +39,24 @@ namespace SocialGraphPlatform.Infrastructure.Data.Configurations
             // ==================== GLOBAL QUERY FILTER ====================
             builder.HasQueryFilter(n => !n.IsDeleted);
 
-            // ==================== INDEXES (Tối ưu hiệu năng) ====================
-
-            // Index chính: Lấy danh sách thông báo của user + sắp xếp theo thời gian mới nhất
+            // ==================== INDEXES ====================
             builder.HasIndex(n => new { n.ReceiverId, n.CreatedAt })
                    .IsDescending();
 
-            // Index quan trọng nhất: Đếm thông báo chưa đọc (cho icon chuông)
+            // PostgreSQL dùng dấu ngoặc kép và "false" thay vì [Column] = 0
             builder.HasIndex(n => new { n.ReceiverId, n.IsRead })
-                   .HasFilter("[IsRead] = 0 AND [IsDeleted] = 0");
+                   .HasFilter("\"IsRead\" = false AND \"IsDeleted\" = false");
 
-            // Index cho RelatedEntityId (tìm thông báo liên quan đến một Post, Comment, Story...)
             builder.HasIndex(n => n.RelatedEntityId);
 
             // ==================== RELATIONSHIPS ====================
-
-            // Notification (N) → Receiver (1)
             builder.HasOne(n => n.Receiver)
                    .WithMany(u => u.NotificationsReceived)
                    .HasForeignKey(n => n.ReceiverId)
                    .OnDelete(DeleteBehavior.Restrict);
 
-            // Notification (N) → TriggeredBy (1) - Optional
             builder.HasOne(n => n.TriggeredBy)
-                   .WithMany()                                 // User không cần ICollection thông báo gửi đi
+                   .WithMany()
                    .HasForeignKey(n => n.TriggeredById)
                    .OnDelete(DeleteBehavior.Restrict);
         }

@@ -46,12 +46,10 @@ const Sidebar: React.FC = () => {
     const fullName = currentProfile?.fullName || 'Người dùng';
     const avatarUrl = currentProfile?.avatarUrl || null;
 
+    // ✅ Đã sửa: Chỉ reset trạng thái lỗi khi có đường dẫn ảnh mới
     useEffect(() => {
-        if (avatarUrl && imgError) {
-            const timer = setTimeout(() => setImgError(false), 0);
-            return () => clearTimeout(timer);
-        }
-    }, [avatarUrl, imgError]);
+        setImgError(false);
+    }, [avatarUrl]);
 
     return (
         <aside
@@ -122,15 +120,15 @@ const Sidebar: React.FC = () => {
                             <div className={`flex items-center ${expanded ? 'gap-4' : 'justify-center'}`}>
                                 <Icon
                                     className={`w-5 h-5 transition-all duration-300 ${active
-                                            ? 'text-[#FF1493] drop-shadow-[0_0_8px_rgba(255,20,147,0.6)]'
-                                            : 'group-hover:scale-110'
+                                        ? 'text-[#FF1493] drop-shadow-[0_0_8px_rgba(255,20,147,0.6)]'
+                                        : 'group-hover:scale-110'
                                         }`}
                                 />
                                 {expanded && (
                                     <span
                                         className={`text-[15px] transition-all duration-300 ${active
-                                                ? 'text-transparent bg-clip-text bg-gradient-to-r from-[#FF1493] to-[#4F6BFF]'
-                                                : ''
+                                            ? 'text-transparent bg-clip-text bg-gradient-to-r from-[#FF1493] to-[#4F6BFF]'
+                                            : ''
                                             }`}
                                     >
                                         {item.label}

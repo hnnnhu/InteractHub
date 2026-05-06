@@ -43,8 +43,6 @@ const EMOJI_LIST = [
 
 const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
     const { user } = useAuth();
-
-    // Lấy thông tin profile mới nhất (bao gồm avatar) từ server
     const { profile } = useUserProfile('me', 'me');
 
     // States
@@ -70,8 +68,14 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
     const imageInputRef = useRef<HTMLInputElement>(null);
     const videoInputRef = useRef<HTMLInputElement>(null);
 
-    // Avatar URL hiện tại, được resolve bằng hàm chuẩn từ postApi
-    const avatarUrl = resolveMediaUrl(profile?.avatarUrl ?? user?.avatarUrl);
+    // Avatar URL – ưu tiên profile (nếu có), nếu không dùng user từ context
+    const rawAvatar = profile?.avatarUrl ?? user?.avatarUrl;
+    const avatarUrl = resolveMediaUrl(rawAvatar); // Sử dụng hàm resolve đã cập nhật
+
+    // Debug tạm thời (có thể xóa sau khi xác nhận hoạt động)
+    useEffect(() => {
+        console.log('[CreatePost] Resolved avatar URL:', avatarUrl);
+    }, [avatarUrl]);
 
     const getInitial = (): string => {
         const displayName = profile?.fullName || user?.fullName || user?.userName || 'U';
@@ -93,14 +97,12 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             const target = event.target as HTMLElement;
-
             if (
                 containerRef.current?.contains(target) ||
                 target.closest('[data-mention-dropdown]')
             ) {
                 return;
             }
-
             if (content.trim() === '' && selectedMedia.length === 0) {
                 setIsExpanded(false);
             }
@@ -108,7 +110,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
             setShowEmojiPicker(false);
             setShowMentionDropdown(false);
         };
-
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [content, selectedMedia]);
@@ -120,7 +121,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
         };
     }, [selectedMedia]);
 
-    // Handlers
+    // Trích xuất hashtag
     const extractHashtags = (text: string) => {
         const regex = /#[\p{L}\p{N}_]+/gu;
         const matches = text.match(regex) || [];
@@ -509,13 +510,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
                             <button
                                 onClick={handleSubmit}
                                 disabled={(!content.trim() && selectedMedia.length === 0) || isLoading}
-                                className={`
-                  w-full sm:w-auto px-6 py-2.5 rounded-full font-bold flex items-center justify-center gap-2 transition-all duration-300 shadow-lg
-                  ${!content.trim() && selectedMedia.length === 0
-                                        ? 'bg-white/5 text-gray-500 cursor-not-allowed border border-white/5'
-                                        : 'bg-gradient-to-r from-[#4F6BFF] to-[#FF1493] text-white hover:opacity-90 shadow-[0_0_20px_rgba(255,20,147,0.3)] border border-transparent hover:scale-[1.02] active:scale-[0.98]'
-                                    }
-                `}
+                                className={`w-full sm:w-auto px-6 py-2.5 rounded-full font-bold flex items-center justify-center gap-2 transition-all duration-300 shadow-lg ${!content.trim() && selectedMedia.length === 0
+                                    ? 'bg-white/5 text-gray-500 cursor-not-allowed border border-white/5'
+                                    : 'bg-gradient-to-r from-[#4F6BFF] to-[#FF1493] text-white hover:opacity-90 shadow-[0_0_20px_rgba(255,20,147,0.3)] border border-transparent hover:scale-[1.02] active:scale-[0.98]'
+                                    }`}
                             >
                                 {isLoading ? (
                                     <>

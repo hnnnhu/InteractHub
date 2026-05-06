@@ -160,14 +160,23 @@ const UPLOAD_BASE_URL = getUploadBaseUrl();
 /**
  * Chuyển đổi đường dẫn ảnh tương đối (hoặc không có scheme) thành URL tuyệt đối.
  * - Nếu URL đã tuyệt đối (http/https/data:) thì giữ nguyên.
- * - Nếu bắt đầu bằng "uploads/" hoặc "/uploads/" thì nối với UPLOAD_BASE_URL.
- * - Ngược lại, coi là đã đầy đủ từ gốc và nối với UPLOAD_BASE_URL.
+ * - Loại bỏ dấu / thừa ở đầu.
+ * - Nếu chuỗi đã có sẵn thư mục "uploads/" ở đầu thì cắt bỏ để tránh trùng lặp.
+ * - Cuối cùng nối với UPLOAD_BASE_URL.
  */
 export const resolveMediaUrl = (url?: string | null): string | null => {
     if (!url) return null;
     if (url.startsWith('http') || url.startsWith('data:')) return url;
 
-    const cleanUrl = url.replace(/^\/+/, ''); // bỏ dấu / ở đầu
+    let cleanUrl = url.replace(/^\/+/, ''); // bỏ dấu / ở đầu
+
+    // KIỂM TRA TRÙNG LẶP:
+    // Nếu cleanUrl đã có sẵn 'uploads/' ở đầu, ta cắt bỏ nó đi
+    // để tránh tình trạng URL bị lặp thành /uploads/uploads/...
+    if (cleanUrl.startsWith('uploads/')) {
+        cleanUrl = cleanUrl.substring(8); // Cắt bỏ 8 ký tự của chữ "uploads/"
+    }
+
     return `${UPLOAD_BASE_URL}/${cleanUrl}`;
 };
 

@@ -90,7 +90,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLikeChange, onPostUpdated, 
 
     const menuRef = useRef<HTMLDivElement>(null);
 
-    // Resolve avatar URL một lần (đảm bảo tuyệt đối)
+    // Resolve avatar URL một lần (đảm bảo tuyệt đối, không bị trùng lặp uploads/)
     const resolvedAvatarUrl = resolveMediaUrl(post.avatarUrl);
     const resolvedMediaUrl = resolveMediaUrl(post.firstMediaUrl);
 

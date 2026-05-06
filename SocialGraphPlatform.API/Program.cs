@@ -160,9 +160,10 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowClient", policy =>
     {
         policy.WithOrigins(
-                "http://localhost:5173",
-                "https://interact-hub-nine.vercel.app"
-            )
+    "http://localhost:5173",
+    "https://interact-hub-nine.vercel.app",
+    "https://interact-hub-git-main-hnnnhus-projects.vercel.app"  // 👈 Thêm dòng này
+)
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials();

@@ -5,6 +5,7 @@ using SocialGraphPlatform.Application.Interfaces;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization; // 👈 Thêm thư viện để dùng JsonPropertyName
 
 namespace SocialGraphPlatform.Infrastructure.Services;
 
@@ -62,12 +63,13 @@ public class CloudinaryFileStorageService : IFileStorageService
 
             _logger.LogInformation("Cloudinary raw response: {Response}", responseBody);
 
-            var cloudinaryResponse = JsonSerializer.Deserialize<CloudinaryUploadResponse>(responseBody, new JsonSerializerOptions
+            var options = new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true
-            });
+            };
+            var cloudinaryResponse = JsonSerializer.Deserialize<CloudinaryUploadResponse>(responseBody, options);
 
-            var secureUrl = cloudinaryResponse?.SecureUrl?.ToString();
+            var secureUrl = cloudinaryResponse?.SecureUrl;
             if (string.IsNullOrEmpty(secureUrl))
             {
                 _logger.LogWarning("Cloudinary upload succeeded but no secure_url returned. Response: {Response}", responseBody);
@@ -88,6 +90,7 @@ public class CloudinaryFileStorageService : IFileStorageService
 
     private class CloudinaryUploadResponse
     {
+        [JsonPropertyName("secure_url")]
         public string SecureUrl { get; set; } = string.Empty;
     }
 }

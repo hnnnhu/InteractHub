@@ -1,9 +1,10 @@
-﻿// Infrastructure/Services/CloudinaryFileStorageService.cs
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SocialGraphPlatform.Application.Interfaces;
-using System.Net.Http.Json;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
 
 namespace SocialGraphPlatform.Infrastructure.Services;
 
@@ -20,55 +21,73 @@ public class CloudinaryFileStorageService : IFileStorageService
                                          ILogger<CloudinaryFileStorageService> logger)
     {
         _httpClient = httpClient;
-        _cloudName = configuration["Cloudinary:CloudName"];
-        _apiKey = configuration["Cloudinary:ApiKey"];
-        _apiSecret = configuration["Cloudinary:ApiSecret"];
+        _cloudName = configuration["Cloudinary:CloudName"] ?? "";
+        _apiKey = configuration["Cloudinary:ApiKey"] ?? "";
+        _apiSecret = configuration["Cloudinary:ApiSecret"] ?? "";
         _logger = logger;
     }
 
     public async Task<string?> UploadFileAsync(IFormFile file, string subFolder = "general")
     {
-        if (file == null || file.Length == 0)
-            return null;
+        if (file == null || file.Length == 0) return null;
+
+        _logger.LogInformation("Uploading file {FileName} to Cloudinary...", file.FileName);
 
         using var form = new MultipartFormDataContent();
         await using var stream = file.OpenReadStream();
         var fileContent = new StreamContent(stream);
-        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
         form.Add(fileContent, "file", file.FileName);
         form.Add(new StringContent($"interacthub/{subFolder}"), "folder");
-        // Thêm upload preset nếu cần (không bắt buộc)
-        // form.Add(new StringContent("your_preset"), "upload_preset");
 
         var cloudinaryUrl = $"https://api.cloudinary.com/v1_1/{_cloudName}/image/upload";
 
-        // Xác thực basic auth (apiKey:apiSecret)
-        var byteArray = System.Text.Encoding.ASCII.GetBytes($"{_apiKey}:{_apiSecret}");
+        var byteArray = Encoding.ASCII.GetBytes($"{_apiKey}:{_apiSecret}");
         var request = new HttpRequestMessage(HttpMethod.Post, cloudinaryUrl)
         {
             Content = form
         };
-        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", Convert.ToBase64String(byteArray));
+        request.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(byteArray));
 
-        var response = await _httpClient.SendAsync(request);
-        if (response.IsSuccessStatusCode)
+        try
         {
-            var result = await response.Content.ReadFromJsonAsync<CloudinaryUploadResponse>();
-            return result?.SecureUrl?.ToString();
+            var response = await _httpClient.SendAsync(request);
+            var responseBody = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogError("Cloudinary upload failed: {StatusCode} {Response}", response.StatusCode, responseBody);
+                return null;
+            }
+
+            _logger.LogInformation("Cloudinary raw response: {Response}", responseBody);
+
+            var cloudinaryResponse = JsonSerializer.Deserialize<CloudinaryUploadResponse>(responseBody, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+
+            var secureUrl = cloudinaryResponse?.SecureUrl?.ToString();
+            if (string.IsNullOrEmpty(secureUrl))
+            {
+                _logger.LogWarning("Cloudinary upload succeeded but no secure_url returned. Response: {Response}", responseBody);
+                return null;
+            }
+
+            _logger.LogInformation("Cloudinary upload success: {Url}", secureUrl);
+            return secureUrl;
         }
-        else
+        catch (Exception ex)
         {
-            var error = await response.Content.ReadAsStringAsync();
-            _logger.LogError("Cloudinary upload failed: {StatusCode} {Error}", response.StatusCode, error);
+            _logger.LogError(ex, "Cloudinary upload exception for file {FileName}", file.FileName);
             return null;
         }
     }
 
     public Task<bool> DeleteFileAsync(string fileUrl) => Task.FromResult(true);
 
-    // Class để map kết quả JSON trả về
     private class CloudinaryUploadResponse
     {
-        public Uri SecureUrl { get; set; }
+        public string SecureUrl { get; set; } = string.Empty;
     }
 }

@@ -4,7 +4,6 @@ using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.FileProviders;          // 👈 Thêm để dùng PhysicalFileProvider
 using Microsoft.IdentityModel.Tokens;
 using SocialGraphPlatform.API.Middleware;
 using SocialGraphPlatform.Application.Extensions;
@@ -126,7 +125,9 @@ builder.Services.AddScoped<IMediaService, MediaService>();
 builder.Services.AddScoped<IUserSessionService, UserSessionService>();
 
 // ── OTHERS ──
-builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
+// 👉 Dùng Cloudinary thông qua HttpClient – không cần volume, không cần static files
+builder.Services.AddHttpClient<IFileStorageService, CloudinaryFileStorageService>();
+
 builder.Services.Configure<EmailSettings>(configuration.GetSection(EmailSettings.SectionName));
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IBlockedUserProvider, BlockedUserProvider>();
@@ -152,26 +153,24 @@ builder.Services.AddControllers()
     });
 
 // ================================================================
-// 6. CORS (SỬA ĐÚNG CHO CREDENTIALS)
+// 6. CORS
 // ================================================================
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowClient", policy =>
     {
-        // ⚠️ Phải chỉ định rõ origin, không dùng AllowAnyOrigin() khi có AllowCredentials()
         policy.WithOrigins(
-                "http://localhost:5173",                     // Frontend local dev
-                "https://interact-hub-nine.vercel.app"               // 👈 Thay bằng domain Railway thực tế của bạn
-                                                                     // Có thể thêm nhiều origin khác nếu cần
+                "http://localhost:5173",
+                "https://interact-hub-nine.vercel.app"
             )
             .AllowAnyHeader()
             .AllowAnyMethod()
-            .AllowCredentials();   // Cho phép gửi cookie/token nếu cần
+            .AllowCredentials();
     });
 });
 
 // ================================================================
-// 7. KESTREL CONFIG (Upload limits)
+// 7. KESTREL CONFIG
 // ================================================================
 builder.WebHost.ConfigureKestrel(options =>
 {
@@ -205,7 +204,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 // ================================================================
-// MIDDLEWARE PIPELINE (THỨ TỰ QUAN TRỌNG)
+// MIDDLEWARE PIPELINE
 // ================================================================
 if (app.Environment.IsDevelopment())
 {
@@ -220,25 +219,12 @@ else
 
 app.UseHttpsRedirection();
 
-// ------------------ PHỤC VỤ STATIC FILES ------------------
-// 1. wwwroot (nếu có)
-app.UseStaticFiles();
+// Không còn phục vụ file tĩnh từ thư mục uploads – Cloudinary lo hết
+app.UseStaticFiles(); // vẫn giữ wwwroot nếu có
 
-// 2. Thư mục uploads (chứa avatar, media) dưới đường dẫn /uploads
-app.UseStaticFiles(new StaticFileOptions
-{
-    FileProvider = new PhysicalFileProvider(
-        Path.Combine(app.Environment.ContentRootPath, "uploads")),
-    RequestPath = "/uploads"
-});
-// -----------------------------------------------------------
-
-// ⚡ CORS phải đứng trước Authentication/Authorization
 app.UseCors("AllowClient");
 
 app.UseAuthentication();
-//app.UseMiddleware<GlobalExceptionMiddleware>();
-//app.UseMiddleware<UserStatusMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
 app.Run();
@@ -246,10 +232,6 @@ app.Run();
 // ================================================================
 // JSON CONVERTERS (GIỮ NGUYÊN)
 // ================================================================
-
-/// <summary>
-/// Converter cho DateTime không nullable – yêu cầu ISO 8601 hợp lệ.
-/// </summary>
 public class UtcDateTimeConverter : JsonConverter<DateTime>
 {
     public override DateTime Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
@@ -279,9 +261,6 @@ public class UtcDateTimeConverter : JsonConverter<DateTime>
     }
 }
 
-/// <summary>
-/// Converter cho DateTime? nullable – trả về null nếu không parse được.
-/// </summary>
 public class UtcNullableDateTimeConverter : JsonConverter<DateTime?>
 {
     public override DateTime? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)

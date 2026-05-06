@@ -160,8 +160,8 @@ builder.Services.AddCors(options =>
         // ⚠️ Phải chỉ định rõ origin, không dùng AllowAnyOrigin() khi có AllowCredentials()
         policy.WithOrigins(
                 "http://localhost:5173",                     // Frontend local dev
-                "https://interacthub-production-2da1.up.railway.app"               // 👈 Thay bằng domain Railway thực tế của bạn
-                                                                                 // Có thể thêm nhiều origin khác nếu cần
+                "https://interact-hub-nine.vercel.app"               // 👈 Thay bằng domain Railway thực tế của bạn
+                                                                      // Có thể thêm nhiều origin khác nếu cần
             )
             .AllowAnyHeader()
             .AllowAnyMethod()

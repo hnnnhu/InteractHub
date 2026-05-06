@@ -5,7 +5,6 @@ import { createPortal } from 'react-dom';
 import { useAuth } from '../../context/AuthContext';
 import useUserProfile from '../../hooks/useUserProfile';
 import { isAxiosError } from 'axios';
-import axiosInstance from '../../api/axiosInstance';
 import {
     Image as ImageIcon,
     Smile,
@@ -20,9 +19,8 @@ import {
     Hash,
     AtSign,
 } from 'lucide-react';
-import postApi from '../../api/postApi';
+import postApi, { PrivacyLevel, resolveMediaUrl } from '../../api/postApi';
 import type { PostSummaryDto } from '../../api/postApi';
-import { PrivacyLevel } from '../../api/postApi';
 import MentionDropdown from '../mention/MentionDropdown';
 
 interface CreatePostProps {
@@ -72,19 +70,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
     const imageInputRef = useRef<HTMLInputElement>(null);
     const videoInputRef = useRef<HTMLInputElement>(null);
 
-    // Avatar URL hiện tại, được resolve và tự động cập nhật
-    const avatarUrl = profile?.avatarUrl
-        ? resolveUrl(profile.avatarUrl)
-        : resolveUrl(user?.avatarUrl);
-
-    // Helpers
-    function resolveUrl(url?: string | null): string | null {
-        if (!url) return null;
-        if (url.startsWith('http') || url.startsWith('data:')) return url;
-        const baseURL = axiosInstance.defaults.baseURL || 'https://localhost:7042/api';
-        const rootUrl = baseURL.replace(/\/api\/?$/, '');
-        return `${rootUrl}${url.startsWith('/') ? '' : '/'}${url}`;
-    }
+    // Avatar URL hiện tại, được resolve bằng hàm chuẩn từ postApi
+    const avatarUrl = resolveMediaUrl(profile?.avatarUrl ?? user?.avatarUrl);
 
     const getInitial = (): string => {
         const displayName = profile?.fullName || user?.fullName || user?.userName || 'U';

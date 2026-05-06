@@ -131,34 +131,58 @@ export interface HashtagWithPostsDto {
 }
 
 // ==========================================
-// 3. HELPER FUNCTIONS
+// 3. HELPER – URL TUYỆT ĐỐI CHO ẢNH
 // ==========================================
 
-const POSTS_URL = '/posts';
-const MEDIA_URL = '/media';
-const HASHTAGS_URL = '/hashtags';
+/**
+ * Lấy base URL của thư mục uploads từ biến môi trường.
+ * Nếu không có, fallback về cách build từ VITE_API_URL (cắt bỏ /api).
+ */
+const getUploadBaseUrl = (): string => {
+    // Ưu tiên biến môi trường VITE_UPLOAD_URL do bạn tự định nghĩa
+    if (import.meta.env.VITE_UPLOAD_URL) {
+        return import.meta.env.VITE_UPLOAD_URL as string;
+    }
+
+    // Fallback: từ VITE_API_URL (https://interacthub-production-2da1.up.railway.app/api)
+    const apiUrl = import.meta.env.VITE_API_URL as string | undefined;
+    if (apiUrl) {
+        // Cắt bỏ phần /api ở cuối nếu có
+        return apiUrl.replace(/\/api\/?$/, '/uploads');
+    }
+
+    // Default cho local dev
+    return 'https://localhost:7042/uploads';
+};
+
+const UPLOAD_BASE_URL = getUploadBaseUrl();
 
 /**
- * Hàm xử lý chuẩn hóa URL để gắn thêm Domain của Backend nếu bị thiếu.
- * Tránh lỗi vỡ ảnh khi lưu URL dạng relative path trong Database.
+ * Chuyển đổi đường dẫn ảnh tương đối (hoặc không có scheme) thành URL tuyệt đối.
+ * - Nếu URL đã tuyệt đối (http/https/data:) thì giữ nguyên.
+ * - Nếu bắt đầu bằng "uploads/" hoặc "/uploads/" thì nối với UPLOAD_BASE_URL.
+ * - Ngược lại, coi là đã đầy đủ từ gốc và nối với UPLOAD_BASE_URL.
  */
-const resolveUrl = (url?: string | null): string | null => {
+export const resolveMediaUrl = (url?: string | null): string | null => {
     if (!url) return null;
     if (url.startsWith('http') || url.startsWith('data:')) return url;
 
-    const baseURL = axiosInstance.defaults.baseURL || 'https://localhost:7042/api';
-    const rootUrl = baseURL.replace(/\/api\/?$/, ''); // Cắt bỏ chữ /api ở cuối
-
-    return `${rootUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+    const cleanUrl = url.replace(/^\/+/, ''); // bỏ dấu / ở đầu
+    return `${UPLOAD_BASE_URL}/${cleanUrl}`;
 };
 
 // ==========================================
 // 4. API ENDPOINTS CHÍNH
 // ==========================================
 
+const POSTS_URL = '/posts';
+const MEDIA_URL = '/media';
+const HASHTAGS_URL = '/hashtags';
+
 export const postApi = {
     /**
      * TẢI LÊN FILE MEDIA (ẢNH, VIDEO)
+     * Trả về danh sách URL tuyệt đối (đã được resolve).
      */
     uploadMedia: async (files: File[]): Promise<string[]> => {
         if (files.length === 0) return [];
@@ -171,7 +195,7 @@ export const postApi = {
                 `${MEDIA_URL}/upload`,
                 formData,
                 {
-                    timeout: 180000, // Timeout 3 phút cho file nặng
+                    timeout: 180000, // 3 phút
                     onUploadProgress: (progressEvent) => {
                         if (progressEvent.total) {
                             const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
@@ -181,16 +205,16 @@ export const postApi = {
                 }
             );
 
-            if (response.data.isSuccess && response.data.data?.urls && response.data.data.urls.length > 0) {
-                const fullUrls = response.data.data.urls.map(url => resolveUrl(url) as string);
-                return fullUrls;
+            if (response.data.isSuccess && response.data.data?.urls) {
+                // Chuyển tất cả URL về dạng tuyệt đối
+                return response.data.data.urls.map(url => resolveMediaUrl(url) as string);
             }
 
             throw new Error(response.data.message || 'Upload không thành công');
         } catch (error: unknown) {
             console.error('Upload Error:', error);
             if (isAxiosError(error)) {
-                // Xử lý các lỗi cụ thể từ Axios
+                // Có thể bổ sung xử lý chi tiết hơn nếu cần
                 return [];
             }
             throw error;
@@ -248,8 +272,8 @@ export const postApi = {
         if (response.data?.data?.items) {
             response.data.data.items = response.data.data.items.map(item => ({
                 ...item,
-                firstMediaUrl: resolveUrl(item.firstMediaUrl),
-                avatarUrl: resolveUrl(item.avatarUrl)
+                firstMediaUrl: resolveMediaUrl(item.firstMediaUrl),
+                avatarUrl: resolveMediaUrl(item.avatarUrl)
             }));
         }
 
@@ -268,8 +292,8 @@ export const postApi = {
         if (response.data?.data?.items) {
             response.data.data.items = response.data.data.items.map(item => ({
                 ...item,
-                firstMediaUrl: resolveUrl(item.firstMediaUrl),
-                avatarUrl: resolveUrl(item.avatarUrl)
+                firstMediaUrl: resolveMediaUrl(item.firstMediaUrl),
+                avatarUrl: resolveMediaUrl(item.avatarUrl)
             }));
         }
 
@@ -286,10 +310,10 @@ export const postApi = {
 
         if (response.data?.data) {
             const post = response.data.data;
-            post.avatarUrl = resolveUrl(post.avatarUrl);
+            post.avatarUrl = resolveMediaUrl(post.avatarUrl);
             post.mediaItems = post.mediaItems.map(m => ({
                 ...m,
-                mediaUrl: resolveUrl(m.mediaUrl) as string
+                mediaUrl: resolveMediaUrl(m.mediaUrl) as string
             }));
         }
 
@@ -297,8 +321,7 @@ export const postApi = {
     },
 
     /**
-     * TÌM KIẾM BÀI VIẾT THEO TỪ KHÓA (NEW)
-     * GET /api/posts/search?keyword=...&pageNumber=...&pageSize=...
+     * TÌM KIẾM BÀI VIẾT THEO TỪ KHÓA
      */
     searchPosts: async (params: PostSearchRequest): Promise<ApiResponse<PagedResult<PostSummaryDto>>> => {
         const response = await axiosInstance.get<ApiResponse<PagedResult<PostSummaryDto>>>(
@@ -312,12 +335,11 @@ export const postApi = {
             }
         );
 
-        // Chuẩn hóa URL cho ảnh đại diện và media trong kết quả tìm kiếm
         if (response.data?.data?.items) {
             response.data.data.items = response.data.data.items.map(item => ({
                 ...item,
-                firstMediaUrl: resolveUrl(item.firstMediaUrl),
-                avatarUrl: resolveUrl(item.avatarUrl)
+                firstMediaUrl: resolveMediaUrl(item.firstMediaUrl),
+                avatarUrl: resolveMediaUrl(item.avatarUrl)
             }));
         }
 
@@ -352,8 +374,8 @@ export const hashtagApi = {
         if (response.data?.data?.posts) {
             response.data.data.posts = response.data.data.posts.map(item => ({
                 ...item,
-                firstMediaUrl: resolveUrl(item.firstMediaUrl),
-                avatarUrl: resolveUrl(item.avatarUrl)
+                firstMediaUrl: resolveMediaUrl(item.firstMediaUrl),
+                avatarUrl: resolveMediaUrl(item.avatarUrl)
             }));
         }
         return response.data;

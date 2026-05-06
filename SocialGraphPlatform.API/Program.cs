@@ -4,6 +4,7 @@ using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;          // 👈 Thêm để dùng PhysicalFileProvider
 using Microsoft.IdentityModel.Tokens;
 using SocialGraphPlatform.API.Middleware;
 using SocialGraphPlatform.Application.Extensions;
@@ -161,7 +162,7 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(
                 "http://localhost:5173",                     // Frontend local dev
                 "https://interact-hub-nine.vercel.app"               // 👈 Thay bằng domain Railway thực tế của bạn
-                                                                      // Có thể thêm nhiều origin khác nếu cần
+                                                                     // Có thể thêm nhiều origin khác nếu cần
             )
             .AllowAnyHeader()
             .AllowAnyMethod()
@@ -218,7 +219,19 @@ else
 }
 
 app.UseHttpsRedirection();
+
+// ------------------ PHỤC VỤ STATIC FILES ------------------
+// 1. wwwroot (nếu có)
 app.UseStaticFiles();
+
+// 2. Thư mục uploads (chứa avatar, media) dưới đường dẫn /uploads
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(
+        Path.Combine(app.Environment.ContentRootPath, "uploads")),
+    RequestPath = "/uploads"
+});
+// -----------------------------------------------------------
 
 // ⚡ CORS phải đứng trước Authentication/Authorization
 app.UseCors("AllowClient");

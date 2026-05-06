@@ -224,8 +224,8 @@ app.UseStaticFiles();
 app.UseCors("AllowClient");
 
 app.UseAuthentication();
-app.UseMiddleware<GlobalExceptionMiddleware>();
-app.UseMiddleware<UserStatusMiddleware>();
+//app.UseMiddleware<GlobalExceptionMiddleware>();
+//app.UseMiddleware<UserStatusMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
 app.Run();

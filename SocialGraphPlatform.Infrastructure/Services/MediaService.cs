@@ -1,5 +1,7 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿// SocialGraphPlatform.Infrastructure/Services/MediaService.cs
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using SocialGraphPlatform.Application.DTOs.Media;
 using SocialGraphPlatform.Application.Interfaces;
 
@@ -7,19 +9,15 @@ namespace SocialGraphPlatform.Infrastructure.Services;
 
 public class MediaService : IMediaService
 {
-    private readonly string _uploadRootPath;
-    private readonly string _baseUrl;   // ← Thêm dòng này
+    private readonly IFileStorageService _fileStorageService;
+    private readonly ILogger<MediaService> _logger;
 
-    public MediaService(IConfiguration configuration)
+    public MediaService(IFileStorageService fileStorageService,
+                        IConfiguration configuration,
+                        ILogger<MediaService> logger)
     {
-        _uploadRootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
-
-        // Tạo thư mục nếu chưa tồn tại
-        if (!Directory.Exists(_uploadRootPath))
-            Directory.CreateDirectory(_uploadRootPath);
-
-        // Lấy Base URL từ appsettings.json hoặc environment
-        _baseUrl = configuration["BaseUrl"] ?? "https://localhost:7042";
+        _fileStorageService = fileStorageService;
+        _logger = logger;
     }
 
     public async Task<UploadResultDto> UploadFilesAsync(List<IFormFile> files, Guid userId)
@@ -31,20 +29,18 @@ public class MediaService : IMediaService
         {
             if (file.Length == 0) continue;
 
-            // Tạo tên file an toàn
-            var fileExtension = Path.GetExtension(file.FileName).ToLower();
-            var fileName = $"{userId}_{DateTime.UtcNow:yyyyMMddHHmmssfff}_{Guid.NewGuid().ToString()[..8]}{fileExtension}";
+            // Gọi Cloudinary (hoặc bất kỳ implementation nào của IFileStorageService)
+            var url = await _fileStorageService.UploadFileAsync(file, "posts");
 
-            var savePath = Path.Combine(_uploadRootPath, fileName);
-
-            await using var stream = new FileStream(savePath, FileMode.Create);
-            await file.CopyToAsync(stream);
-
-            // === TRẢ VỀ URL ĐẦY ĐỦ (quan trọng) ===
-            var fullUrl = $"{_baseUrl}/uploads/{fileName}";
-
-            urls.Add(fullUrl);
-            successCount++;
+            if (!string.IsNullOrEmpty(url))
+            {
+                urls.Add(url);
+                successCount++;
+            }
+            else
+            {
+                _logger.LogWarning("Upload failed for file: {FileName}", file.FileName);
+            }
         }
 
         return new UploadResultDto

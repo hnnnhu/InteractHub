@@ -1,5 +1,4 @@
 // SocialGraphPlatform.Api/Program.cs
-
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -36,10 +35,8 @@ var configuration = builder.Configuration;
 var connectionString = configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string not found.");
 
-{
-    builder.Services.AddDbContext<AppDbContext>(options =>
+builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
-}
 
 // ================================================================
 // 2. IDENTITY
@@ -133,7 +130,7 @@ builder.Services.Configure<EmailSettings>(configuration.GetSection(EmailSettings
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IBlockedUserProvider, BlockedUserProvider>();
 
-// ── NOTIFICATION SETTINGS & MUTE (ĐÃ THÊM ĐỦ) ──
+// ── NOTIFICATION SETTINGS & MUTE ──
 builder.Services.AddScoped<INotificationSettingsRepository, NotificationSettingsRepository>();
 builder.Services.AddScoped<INotificationSettingsService, NotificationSettingsService>();
 builder.Services.AddScoped<IUserMuteRepository, UserMuteRepository>();
@@ -154,14 +151,22 @@ builder.Services.AddControllers()
     });
 
 // ================================================================
-// 6. CORS
+// 6. CORS (SỬA ĐÚNG CHO CREDENTIALS)
 // ================================================================
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader());
+    options.AddPolicy("AllowClient", policy =>
+    {
+        // ⚠️ Phải chỉ định rõ origin, không dùng AllowAnyOrigin() khi có AllowCredentials()
+        policy.WithOrigins(
+                "http://localhost:5173",                     // Frontend local dev
+                "https://interacthub-production-2da1.up.railway.app"               // 👈 Thay bằng domain Railway thực tế của bạn
+                                                                                 // Có thể thêm nhiều origin khác nếu cần
+            )
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();   // Cho phép gửi cookie/token nếu cần
+    });
 });
 
 // ================================================================
@@ -199,7 +204,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 // ================================================================
-// MIDDLEWARE PIPELINE
+// MIDDLEWARE PIPELINE (THỨ TỰ QUAN TRỌNG)
 // ================================================================
 if (app.Environment.IsDevelopment())
 {
@@ -214,7 +219,9 @@ else
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
-app.UseCors("AllowAll");
+
+// ⚡ CORS phải đứng trước Authentication/Authorization
+app.UseCors("AllowClient");
 
 app.UseAuthentication();
 app.UseMiddleware<GlobalExceptionMiddleware>();
@@ -224,36 +231,32 @@ app.MapControllers();
 app.Run();
 
 // ================================================================
-// JSON CONVERTERS (ĐÃ SỬA LỖI)
+// JSON CONVERTERS (GIỮ NGUYÊN)
 // ================================================================
 
 /// <summary>
-/// Converter cho DateTime không nullable – vẫn yêu cầu ISO 8601 hợp lệ, nhưng báo lỗi rõ ràng hơn.
+/// Converter cho DateTime không nullable – yêu cầu ISO 8601 hợp lệ.
 /// </summary>
 public class UtcDateTimeConverter : JsonConverter<DateTime>
 {
     public override DateTime Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        // Nếu không phải String, dùng GetDateTime() gốc (sẽ tự throw)
         if (reader.TokenType != JsonTokenType.String)
         {
             return reader.GetDateTime().ToUniversalTime();
         }
 
-        // Xử lý string: thử các định dạng phổ biến
         string? str = reader.GetString();
         if (string.IsNullOrEmpty(str))
         {
             throw new JsonException("DateTime string is null or empty.");
         }
 
-        // Thử parse như DateTimeOffset để tôn trọng offset nếu có
         if (DateTimeOffset.TryParse(str, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTimeOffset dto))
         {
             return dto.UtcDateTime;
         }
 
-        // Nếu không parse được, throw lỗi chi tiết
         throw new JsonException($"The value '{str}' is not a valid ISO 8601 DateTime.");
     }
 
@@ -264,33 +267,27 @@ public class UtcDateTimeConverter : JsonConverter<DateTime>
 }
 
 /// <summary>
-/// Converter cho DateTime? nullable – xử lý an toàn: null, chuỗi rỗng, hoặc định dạng không chuẩn đều trả về null.
+/// Converter cho DateTime? nullable – trả về null nếu không parse được.
 /// </summary>
 public class UtcNullableDateTimeConverter : JsonConverter<DateTime?>
 {
     public override DateTime? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        // Null token → null
         if (reader.TokenType == JsonTokenType.Null)
             return null;
 
-        // Chỉ xử lý String token, các token khác bỏ qua và trả về null (hoặc có thể throw)
         if (reader.TokenType != JsonTokenType.String)
             return null;
 
         string? str = reader.GetString();
-
-        // Chuỗi rỗng hoặc null string → null
         if (string.IsNullOrEmpty(str))
             return null;
 
-        // Thử parse dưới dạng DateTimeOffset (hỗ trợ ISO 8601, offset,…)
         if (DateTimeOffset.TryParse(str, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTimeOffset dto))
         {
             return dto.UtcDateTime;
         }
 
-        // Nếu không parse được, trả về null thay vì crash
         return null;
     }
 

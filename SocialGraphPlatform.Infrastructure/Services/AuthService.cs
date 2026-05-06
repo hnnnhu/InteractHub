@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.DependencyInjection;
 using SocialGraphPlatform.Application.DTOs.Auth;
 using SocialGraphPlatform.Application.DTOs.Common;
 using SocialGraphPlatform.Application.DTOs.Notification;
@@ -19,6 +20,7 @@ public class AuthService : IAuthService
     private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly IUserSessionService _sessionService;
     private readonly INotificationService _notificationService;
+    private readonly IServiceScopeFactory _scopeFactory; // Thêm để tạo scope cho background task
 
     public AuthService(
         UserManager<User> userManager,
@@ -26,7 +28,8 @@ public class AuthService : IAuthService
         IEmailService emailService,
         IRefreshTokenRepository refreshTokenRepository,
         IUserSessionService sessionService,
-        INotificationService notificationService)
+        INotificationService notificationService,
+        IServiceScopeFactory scopeFactory) // Inject thêm
     {
         _userManager = userManager;
         _tokenService = tokenService;
@@ -34,6 +37,7 @@ public class AuthService : IAuthService
         _refreshTokenRepository = refreshTokenRepository;
         _sessionService = sessionService;
         _notificationService = notificationService;
+        _scopeFactory = scopeFactory;
     }
 
     private string GetJtiFromToken(string token)
@@ -78,8 +82,20 @@ public class AuthService : IAuthService
 
         await _userManager.AddToRoleAsync(user, "User");
 
-        try { await _emailService.SendWelcomeEmailAsync(user.Email!, user.FullName); }
-        catch { /* fire-and-forget */ }
+        // Gửi email chào mừng trong background (fire-and-forget thực sự)
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
+                await emailService.SendWelcomeEmailAsync(user.Email!, user.FullName);
+            }
+            catch
+            {
+                // Bỏ qua lỗi, không ảnh hưởng đến response
+            }
+        });
 
         // Lấy roles của user (mặc định "User" sau khi đăng ký)
         var roles = await _userManager.GetRolesAsync(user);
@@ -104,7 +120,7 @@ public class AuthService : IAuthService
             expiresAt - DateTime.UtcNow
         );
 
-        // Gửi thông báo chào mừng (fire-and-forget)
+        // Gửi thông báo chào mừng (có thể vẫn để await vì nhanh, hoặc cũng cho vào background nếu muốn)
         try
         {
             await _notificationService.CreateNotificationAsync(new CreateNotificationDto

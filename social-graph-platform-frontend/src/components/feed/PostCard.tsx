@@ -15,7 +15,7 @@ import {
     Flag,
 } from 'lucide-react';
 
-import postApi, { PrivacyLevel } from '../../api/postApi';
+import postApi, { PrivacyLevel, resolveMediaUrl } from '../../api/postApi';
 import savedPostApi from '../../api/savedPostApi';
 import type { PostSummaryDto } from '../../api/postApi';
 import type { ReactionCountDto } from '../../types/reaction';
@@ -84,7 +84,15 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLikeChange, onPostUpdated, 
     const [isReactionModalOpen, setIsReactionModalOpen] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
 
+    // --- IMAGE ERROR STATES ---
+    const [avatarError, setAvatarError] = useState(false);
+    const [mediaError, setMediaError] = useState(false);
+
     const menuRef = useRef<HTMLDivElement>(null);
+
+    // Resolve avatar URL một lần (đảm bảo tuyệt đối)
+    const resolvedAvatarUrl = resolveMediaUrl(post.avatarUrl);
+    const resolvedMediaUrl = resolveMediaUrl(post.firstMediaUrl);
 
     // Click outside to close menu
     useEffect(() => {
@@ -220,11 +228,12 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLikeChange, onPostUpdated, 
                             onClick={navigateToProfile}
                         >
                             <div className="w-full h-full bg-[#1A1825] rounded-full overflow-hidden flex items-center justify-center">
-                                {post.avatarUrl ? (
+                                {resolvedAvatarUrl && !avatarError ? (
                                     <img
-                                        src={post.avatarUrl}
+                                        src={resolvedAvatarUrl}
                                         alt={post.fullName}
                                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                                        onError={() => setAvatarError(true)}
                                     />
                                 ) : (
                                     <span className="text-[#FF1493] font-bold text-lg">
@@ -323,16 +332,17 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLikeChange, onPostUpdated, 
                 )}
 
                 {/* 3. MEDIA PREVIEW */}
-                {post.firstMediaUrl && (
+                {resolvedMediaUrl && !mediaError && (
                     <div
                         onClick={() => setIsDetailModalOpen(true)}
                         className="mt-4 rounded-2xl overflow-hidden border border-white/10 relative group cursor-pointer"
                     >
                         <img
-                            src={post.firstMediaUrl}
+                            src={resolvedMediaUrl}
                             alt="Media bài viết"
                             className="w-full max-h-[500px] object-cover transition-transform duration-500 group-hover:scale-[1.02]"
                             loading="lazy"
+                            onError={() => setMediaError(true)}
                         />
                         {post.mediaCount > 1 && (
                             <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-md text-white text-xs font-bold px-3 py-1.5 rounded-lg border border-white/20 shadow-lg">

@@ -1,6 +1,5 @@
 // src/hooks/story/useStoryViewer.ts
 import { useState, useCallback, useMemo } from 'react';
-import { storyApi } from '../../api/storyApi';
 import type { ActiveStoryDto } from '../../types/story';
 
 interface UseStoryViewerProps {
@@ -8,7 +7,7 @@ interface UseStoryViewerProps {
     initialUserIndex?: number;
     initialStoryIndex?: number;
     onClose?: () => void;
-    currentUserId?: string;
+    currentUserId?: string; // không còn cần trong hook này nhưng có thể giữ lại để mở rộng
 }
 
 export function useStoryViewer({
@@ -16,7 +15,6 @@ export function useStoryViewer({
     initialUserIndex = 0,
     initialStoryIndex = 0,
     onClose,
-    currentUserId,
 }: UseStoryViewerProps) {
     const [visible, setVisible] = useState(false);
     const [userIndex, setUserIndex] = useState(initialUserIndex);
@@ -39,19 +37,11 @@ export function useStoryViewer({
         onClose?.();
     }, [onClose]);
 
-    const markCurrentAsViewed = useCallback(async () => {
-        if (currentStory && currentStory.userId !== currentUserId) {
-            try {
-                await storyApi.markAsViewed(currentStory.id);
-            } catch {
-                // silent
-            }
-        }
-    }, [currentStory, currentUserId]);
+    // markCurrentAsViewed đã bị xóa hoàn toàn
 
-    const nextStory = useCallback(async () => {
+    const nextStory = useCallback(() => {
         if (!currentUser) return;
-        await markCurrentAsViewed();
+        // Không còn gọi markCurrentAsViewed
         if (storyIndex < currentUser.stories.length - 1) {
             setStoryIndex((prev) => prev + 1);
         } else if (userIndex < internalFeed.length - 1) {
@@ -65,7 +55,6 @@ export function useStoryViewer({
         storyIndex,
         userIndex,
         internalFeed.length,
-        markCurrentAsViewed,
         closeViewer,
     ]);
 

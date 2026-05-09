@@ -6,6 +6,7 @@ import { StoryViewerHeader } from './StoryViewerHeader';
 import { StoryViewerProgress } from './StoryViewerProgress';
 import { StoryViewersList } from './StoryViewersList';
 import type { ActiveStoryDto, StoryResponseDto } from '../../types/story';
+import { storyApi } from '../../api/storyApi'; // API để gọi markAsViewed
 
 interface StoryViewerProps {
     currentUser: ActiveStoryDto | null;
@@ -22,8 +23,7 @@ const SWIPE_THRESHOLD = 50;
 
 /**
  * StoryViewerContent – nội dung thực của trình xem story.
- * Được thiết kế để remount khi currentStory thay đổi (qua key),
- * do đó không cần reset state thủ công.
+ * Được remount khi currentStory.id thay đổi (qua key).
  */
 const StoryViewerContent: React.FC<StoryViewerProps> = ({
     currentUser,
@@ -47,6 +47,19 @@ const StoryViewerContent: React.FC<StoryViewerProps> = ({
 
     const isOwner = currentUserId != null && currentStory?.userId === currentUserId;
     const isVideo = currentStory?.type === 2;
+
+    // ──────────────────────────────────────
+    // TỰ ĐỘNG GHI NHẬN LƯỢT XEM khi story hiển thị
+    // (chỉ gọi nếu người xem không phải chủ story)
+    // ──────────────────────────────────────
+    useEffect(() => {
+        if (currentStory && currentUserId && currentStory.userId !== currentUserId) {
+            storyApi.markAsViewed(currentStory.id).catch((err) =>
+                console.error('Lỗi ghi nhận lượt xem story:', err)
+            );
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentStory?.id, currentUserId]); // chỉ cần chạy khi story.id thay đổi
 
     // ──────────────────────────────────────
     // Tiến trình cho story dạng ảnh
@@ -307,8 +320,7 @@ const StoryViewerContent: React.FC<StoryViewerProps> = ({
 
 /**
  * StoryViewer – wrapper render qua portal.
- * Sẽ remount khi currentStory.id thay đổi nhờ key,
- * giải quyết triệt để warning "cascading renders".
+ * Remount khi currentStory.id thay đổi nhờ key.
  */
 export const StoryViewer: React.FC<StoryViewerProps> = (props) => {
     if (!props.currentUser || !props.currentStory) return null;

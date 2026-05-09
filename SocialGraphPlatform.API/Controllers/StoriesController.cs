@@ -144,7 +144,7 @@ public class StoriesController : ControllerBase
     /// <summary>
     /// Đánh dấu đã xem một Story
     /// </summary>
-    [HttpPost("{id}/view")]
+    [HttpPost("{id}/seen")]   // 👈 ĐÃ ĐỔI TỪ "view" THÀNH "seen" ĐỂ TRÁNH ADBLOCK
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> MarkAsViewed(Guid id)

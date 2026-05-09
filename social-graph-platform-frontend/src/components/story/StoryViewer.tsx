@@ -45,7 +45,10 @@ const StoryViewerContent: React.FC<StoryViewerProps> = ({
     const touchStartX = useRef(0);
     const videoRef = useRef<HTMLVideoElement>(null);
 
-    const isOwner = currentUserId != null && currentStory?.userId === currentUserId;
+    // So sánh không phân biệt chữ hoa/thường để xác định chủ sở hữu story
+    const isOwner =
+        currentUserId != null &&
+        currentStory?.userId?.toLowerCase() === currentUserId.toLowerCase();
     const isVideo = currentStory?.type === 2;
 
     // ──────────────────────────────────────

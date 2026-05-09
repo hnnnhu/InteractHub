@@ -28,7 +28,7 @@ const resolveAvatarUrl = (url?: string | null): string | null => {
 
 const Feed: React.FC = () => {
     const { user } = useAuth();
-    // Lấy ID từ userId – AuthResponse luôn có userId
+    // AuthResponse luôn có userId, fallback về '' nếu chưa đăng nhập
     const currentUserId = user?.userId || '';
 
     const [posts, setPosts] = useState<PostSummaryDto[]>([]);
@@ -39,7 +39,6 @@ const Feed: React.FC = () => {
 
     const { feed } = useStoryFeed();
     const { myStories } = useMyStories();
-    // useStoryViewer không cần currentUserId nữa
     const viewer = useStoryViewer({ feed });
     const [isCreatingStory, setIsCreatingStory] = useState(false);
 
@@ -47,7 +46,7 @@ const Feed: React.FC = () => {
     const myStoryUser: ActiveStoryDto | null = useMemo(() => {
         if (!myStories || myStories.stories.length === 0 || !user) return null;
         return {
-            userId: user.userId, // user.userId luôn có giá trị
+            userId: user.userId, // user.userId luôn có giá trị ở đây
             userName: user.userName,
             fullName: user.fullName ?? '',
             avatarUrl: resolveAvatarUrl(user.avatarUrl),

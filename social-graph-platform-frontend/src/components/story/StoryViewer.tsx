@@ -53,16 +53,22 @@ const StoryViewerContent: React.FC<StoryViewerProps> = ({
 
     // ──────────────────────────────────────
     // TỰ ĐỘNG GHI NHẬN LƯỢT XEM khi story hiển thị
-    // (chỉ gọi nếu người xem không phải chủ story)
     // ──────────────────────────────────────
     useEffect(() => {
-        if (currentStory && currentUserId && currentStory.userId !== currentUserId) {
-            storyApi.markAsViewed(currentStory.id).catch((err) =>
-                console.error('Lỗi ghi nhận lượt xem story:', err)
-            );
+        const safeCurrentUserId = currentUserId?.toLowerCase() || '';
+        const safeStoryUserId = currentStory?.userId?.toLowerCase() || '';
+
+        // Chỉ tính view nếu có ID và người xem KHÁC chủ story
+        if (currentStory && safeCurrentUserId !== '' && safeStoryUserId !== safeCurrentUserId) {
+            storyApi.markAsViewed(currentStory.id).then((res) => {
+                if (!res.isSuccess) {
+                    console.error('❌ Lỗi Backend khi đếm view:', res.message);
+                } else {
+                    console.log('✅ Đã đếm view thành công cho story:', currentStory.id);
+                }
+            });
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [currentStory?.id, currentUserId]); // chỉ cần chạy khi story.id thay đổi
+    }, [currentStory?.id, currentUserId, currentStory?.userId]);
 
     // ──────────────────────────────────────
     // Tiến trình cho story dạng ảnh

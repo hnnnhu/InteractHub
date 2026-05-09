@@ -148,10 +148,11 @@ export const storyApi = {
     /**
      * Đánh dấu đã xem một Story
      * POST /api/stories/{id}/view
+     * Gửi body rỗng {} để tránh lỗi 415 Unsupported Media Type
      */
     async markAsViewed(storyId: string): Promise<ApiResponse<null>> {
         return safeRequest<ApiResponse<null>>(
-            axiosInstance.post(`${STORIES_URL}/${storyId}/view`)
+            axiosInstance.post(`${STORIES_URL}/${storyId}/view`, {})
         );
     },
 

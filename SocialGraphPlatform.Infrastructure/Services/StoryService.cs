@@ -5,6 +5,8 @@ using SocialGraphPlatform.Application.Interfaces;
 using SocialGraphPlatform.Application.Interfaces.Repositories;
 using SocialGraphPlatform.Domain.Entities;
 using SocialGraphPlatform.Domain.Enums;
+using SocialGraphPlatform.Infrastructure.Data; // Thêm để dùng AppDbContext
+using Microsoft.EntityFrameworkCore; // Dùng AnyAsync
 
 namespace SocialGraphPlatform.Infrastructure.Services;
 
@@ -14,17 +16,20 @@ public class StoryService : IStoryService
     private readonly IUserRepository _userRepository;
     private readonly IFriendshipRepository _friendshipRepository;
     private readonly INotificationService _notificationService;
+    private readonly AppDbContext _context; // Thêm DbContext
 
     public StoryService(
         IStoryRepository storyRepository,
         IUserRepository userRepository,
         IFriendshipRepository friendshipRepository,
-        INotificationService notificationService)
+        INotificationService notificationService,
+        AppDbContext context) // Inject DbContext
     {
         _storyRepository = storyRepository;
         _userRepository = userRepository;
         _friendshipRepository = friendshipRepository;
         _notificationService = notificationService;
+        _context = context;
     }
 
     // 1. Tạo Story mới
@@ -182,14 +187,13 @@ public class StoryService : IStoryService
             AvatarUrl = firstStory.User.AvatarUrl,
             Stories = storyDtos,
             LatestStoryCreatedAt = stories.Max(s => s.CreatedAt),
-            // Số story chưa có lượt xem nào (có thể đổi logic nếu cần)
             UnviewedCount = stories.Count(s => !s.Views.Any())
         };
 
         return ApiResponse<ActiveStoryDto>.Ok(dto);
     }
 
-    // 6. Đánh dấu story đã xem
+    // 6. Đánh dấu story đã xem (SỬA)
     public async Task<ApiResponse> MarkStoryAsViewedAsync(Guid currentUserId, Guid storyId)
     {
         var story = await _storyRepository.GetStoryWithDetailsAsync(storyId);
@@ -199,11 +203,23 @@ public class StoryService : IStoryService
         if (currentUserId == story.UserId)
             return ApiResponse.Ok("Không tính view của chính chủ");
 
-        if (story.Views.Any(v => v.ViewerId == currentUserId))
+        // Kiểm tra xem đã xem chưa: query thẳng DB
+        var alreadyViewed = await _context.StoryViews
+            .AnyAsync(v => v.StoryId == storyId && v.ViewerId == currentUserId);
+
+        if (alreadyViewed)
             return ApiResponse.Ok("Đã xem trước đó");
 
-        story.AddView(currentUserId);
-        await _storyRepository.SaveChangesAsync();
+        // Insert trực tiếp
+        var newView = new StoryView
+        {
+            StoryId = storyId,
+            ViewerId = currentUserId,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+
+        _context.StoryViews.Add(newView);
+        await _context.SaveChangesAsync();
 
         return ApiResponse.Ok("Đã ghi nhận lượt xem");
     }

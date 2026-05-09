@@ -98,4 +98,12 @@ public class StoryRepository : GenericRepository<Story>, IStoryRepository
             .Select(g => new { g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.Key, x => x.Count);
     }
+    public async Task<Story?> GetStoryForUpdateAsync(Guid storyId)
+    {
+        return await _context.Stories
+            .Include(s => s.Views) // cần Views để kiểm tra trùng và thêm mới
+            .Include(s => s.User) // nếu cần thông tin User sau này
+            .FirstOrDefaultAsync(s => s.Id == storyId && !s.IsDeleted);
+    }
+
 }

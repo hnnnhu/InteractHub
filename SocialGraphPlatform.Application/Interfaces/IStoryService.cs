@@ -25,4 +25,5 @@ public interface IStoryService
 
     // Lấy danh sách những người đã xem Story (Chỉ tác giả mới được xem)
     Task<ApiResponse<PagedResult<StoryViewDto>>> GetStoryViewsAsync(Guid currentUserId, Guid storyId, int pageNumber, int pageSize);
+
 }

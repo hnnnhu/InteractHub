@@ -15,10 +15,6 @@ import type {
 // Helper functions
 // -------------------------------------------------------------------
 
-/**
- * Chuyển đổi đường dẫn tương đối thành URL tuyệt đối
- * để hiển thị ảnh/media đúng trên client.
- */
 const resolveUrl = (url?: string | null): string | null => {
     if (!url) return null;
     if (url.startsWith('http') || url.startsWith('data:')) return url;
@@ -28,9 +24,6 @@ const resolveUrl = (url?: string | null): string | null => {
     return `${rootUrl}${url.startsWith('/') ? '' : '/'}${url}`;
 };
 
-/**
- * Chuẩn hóa URL cho một StoryResponseDto (avatar, media, recent viewers).
- */
 const normalizeStoryResponse = (story: StoryResponseDto): StoryResponseDto => ({
     ...story,
     avatarUrl: resolveUrl(story.avatarUrl),
@@ -41,34 +34,42 @@ const normalizeStoryResponse = (story: StoryResponseDto): StoryResponseDto => ({
     })),
 });
 
-/**
- * Chuẩn hóa URL cho một ActiveStoryDto (bao gồm cả danh sách story bên trong).
- */
 const normalizeActiveStory = (dto: ActiveStoryDto): ActiveStoryDto => ({
     ...dto,
     avatarUrl: resolveUrl(dto.avatarUrl),
     stories: dto.stories.map(normalizeStoryResponse),
 });
 
-/**
- * Chuẩn hóa URL cho một StoryViewDto (avatar của người xem).
- */
 const normalizeStoryView = (view: StoryViewDto): StoryViewDto => ({
     ...view,
     viewerAvatarUrl: resolveUrl(view.viewerAvatarUrl),
 });
 
 /**
- * Bọc request để bắt lỗi và trả về ApiResponse thất bại nếu có lỗi mạng hoặc lỗi bất ngờ.
+ * Wrapper bắt lỗi mạng và lỗi server.
+ * Nếu server trả về response (có data) thì trả về nguyên vẹn.
+ * Nếu lỗi mạng (không có response) thì trả về ApiResponse với isSuccess = false và message rõ ràng.
  */
 async function safeRequest<T>(request: Promise<{ data: T }>): Promise<T> {
     try {
         const response = await request;
         return response.data;
     } catch (error: unknown) {
-        if (isAxiosError(error) && error.response?.data) {
-            return error.response.data as T;
+        if (isAxiosError(error)) {
+            // Server có trả về response (lỗi 4xx, 5xx)
+            if (error.response?.data) {
+                return error.response.data as T;
+            }
+            // Lỗi mạng (không nhận được response)
+            if (error.request) {
+                console.error('❌ Network Error:', error.message);
+                return {
+                    isSuccess: false,
+                    message: 'Không thể kết nối đến máy chủ.',
+                } as T;
+            }
         }
+        // Lỗi không xác định
         return {
             isSuccess: false,
             message: 'Không thể kết nối đến máy chủ.',
@@ -76,17 +77,9 @@ async function safeRequest<T>(request: Promise<{ data: T }>): Promise<T> {
     }
 }
 
-// -------------------------------------------------------------------
-// API endpoints
-// -------------------------------------------------------------------
-
 const STORIES_URL = '/stories';
 
 export const storyApi = {
-    /**
-     * Lấy danh sách Story đang hoạt động của chính mình
-     * GET /api/stories/me
-     */
     async getMyStories(): Promise<ApiResponse<ActiveStoryDto>> {
         const data = await safeRequest<ApiResponse<ActiveStoryDto>>(
             axiosInstance.get(`${STORIES_URL}/me`)
@@ -97,30 +90,18 @@ export const storyApi = {
         return data;
     },
 
-    /**
-     * Đăng một Story mới
-     * POST /api/stories
-     */
     async createStory(dto: CreateStoryDto): Promise<ApiResponse<{ id: string }>> {
         return safeRequest<ApiResponse<{ id: string }>>(
             axiosInstance.post(STORIES_URL, dto)
         );
     },
 
-    /**
-     * Xoá Story trước khi hết hạn
-     * DELETE /api/stories/{id}
-     */
     async deleteStory(storyId: string): Promise<ApiResponse<null>> {
         return safeRequest<ApiResponse<null>>(
             axiosInstance.delete(`${STORIES_URL}/${storyId}`)
         );
     },
 
-    /**
-     * Lấy bảng tin Story của bạn bè (Story Tray)
-     * GET /api/stories/feed
-     */
     async getActiveStoriesFeed(): Promise<ApiResponse<ActiveStoryDto[]>> {
         const data = await safeRequest<ApiResponse<ActiveStoryDto[]>>(
             axiosInstance.get(`${STORIES_URL}/feed`)
@@ -131,10 +112,6 @@ export const storyApi = {
         return data;
     },
 
-    /**
-     * Xem chi tiết một Story cụ thể theo ID
-     * GET /api/stories/{id}
-     */
     async getStoryById(storyId: string): Promise<ApiResponse<StoryResponseDto>> {
         const data = await safeRequest<ApiResponse<StoryResponseDto>>(
             axiosInstance.get(`${STORIES_URL}/${storyId}`)
@@ -145,21 +122,12 @@ export const storyApi = {
         return data;
     },
 
-    /**
-     * Đánh dấu đã xem một Story
-     * POST /api/stories/{id}/view
-     * Gửi body rỗng {} để tránh lỗi 415 Unsupported Media Type
-     */
     async markAsViewed(storyId: string): Promise<ApiResponse<null>> {
         return safeRequest<ApiResponse<null>>(
             axiosInstance.post(`${STORIES_URL}/${storyId}/view`, {})
         );
     },
 
-    /**
-     * Lấy danh sách những người đã xem một Story (chỉ tác giả)
-     * GET /api/stories/{id}/views?pageNumber=&pageSize=
-     */
     async getStoryViews(
         storyId: string,
         pageNumber = 1,

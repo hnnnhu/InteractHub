@@ -101,8 +101,7 @@ public class StoryRepository : GenericRepository<Story>, IStoryRepository
     public async Task<Story?> GetStoryForUpdateAsync(Guid storyId)
     {
         return await _context.Stories
-            .Include(s => s.Views) // cần Views để kiểm tra trùng và thêm mới
-            .Include(s => s.User) // nếu cần thông tin User sau này
+            .Include(s => s.Views)
             .FirstOrDefaultAsync(s => s.Id == storyId && !s.IsDeleted);
     }
 

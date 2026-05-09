@@ -61,4 +61,6 @@ public interface IStoryRepository : IGenericRepository<Story>
     /// <param name="storyIds">Danh sách ID của các Story cần đếm.</param>
     /// <returns>Từ điển ánh xạ StoryId → tổng số lượt xem thực tế (không filter).</returns>
     Task<Dictionary<Guid, int>> GetViewCountsAsync(IEnumerable<Guid> storyIds);
+
+    Task<Story?> GetStoryForUpdateAsync(Guid storyId);
 }

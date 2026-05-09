@@ -1,5 +1,5 @@
 // src/hooks/story/useStoryViews.ts
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import storyApi from '../../api/storyApi';
 import type { PagedResult, StoryViewDto } from '../../types/story';
@@ -7,6 +7,8 @@ import type { PagedResult, StoryViewDto } from '../../types/story';
 export function useStoryViews(storyId: string, pageSize = 20) {
     const queryClient = useQueryClient();
     const [page, setPage] = useState(1);
+    const [accumulatedViews, setAccumulatedViews] = useState<StoryViewDto[]>([]);
+    const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const {
         data: pagedData,
@@ -23,19 +25,41 @@ export function useStoryViews(storyId: string, pageSize = 20) {
             return res.data;
         },
         enabled: !!storyId,
-        staleTime: 3 * 60 * 1000,
+        staleTime: 0, // luôn fetch mới để thấy người xem ngay
     });
 
-    const views = useMemo(() => pagedData?.items ?? [], [pagedData]);
+    // Đồng bộ dữ liệu vào accumulatedViews một cách an toàn (tránh cascading renders)
+    useEffect(() => {
+        if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+        }
 
-    const hasMore = useMemo(() => {
-        if (!pagedData) return false;
-        return page * pageSize < pagedData.totalCount;
-    }, [pagedData, page, pageSize]);
+        if (pagedData?.items) {
+            timeoutRef.current = setTimeout(() => {
+                if (page === 1) {
+                    setAccumulatedViews(pagedData.items);
+                } else {
+                    setAccumulatedViews(prev => {
+                        const existingIds = new Set(prev.map(v => v.id));
+                        const newItems = pagedData.items.filter(v => !existingIds.has(v.id));
+                        return [...prev, ...newItems];
+                    });
+                }
+            }, 0);
+        }
+
+        return () => {
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+            }
+        };
+    }, [pagedData, page]);
+
+    const hasMore = pagedData ? page * pageSize < pagedData.totalCount : false;
 
     const loadMore = useCallback(() => {
         if (hasMore && !isFetching) {
-            setPage((prev) => prev + 1);
+            setPage(prev => prev + 1);
         }
     }, [hasMore, isFetching]);
 
@@ -45,7 +69,7 @@ export function useStoryViews(storyId: string, pageSize = 20) {
     }, [queryClient, storyId]);
 
     return {
-        views,
+        views: accumulatedViews,
         loading: isLoading,
         error: error?.message ?? null,
         hasMore,

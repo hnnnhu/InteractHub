@@ -56,11 +56,9 @@ async function safeRequest<T>(request: Promise<{ data: T }>): Promise<T> {
         return response.data;
     } catch (error: unknown) {
         if (isAxiosError(error)) {
-            // Server có trả về response (lỗi 4xx, 5xx)
             if (error.response?.data) {
                 return error.response.data as T;
             }
-            // Lỗi mạng (không nhận được response)
             if (error.request) {
                 console.error('❌ Network Error:', error.message);
                 return {
@@ -69,7 +67,6 @@ async function safeRequest<T>(request: Promise<{ data: T }>): Promise<T> {
                 } as T;
             }
         }
-        // Lỗi không xác định
         return {
             isSuccess: false,
             message: 'Không thể kết nối đến máy chủ.',
@@ -122,9 +119,10 @@ export const storyApi = {
         return data;
     },
 
+    // 👉 ĐÃ ĐỔI TỪ "view" THÀNH "seen" ĐỂ TRÁNH ADBLOCK CHẶN REQUEST
     async markAsViewed(storyId: string): Promise<ApiResponse<null>> {
         return safeRequest<ApiResponse<null>>(
-            axiosInstance.post(`${STORIES_URL}/${storyId}/view`, {})
+            axiosInstance.post(`${STORIES_URL}/${storyId}/seen`, {})
         );
     },
 

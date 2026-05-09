@@ -30,11 +30,39 @@ const NotificationDropdown: React.FC = () => {
 
     const handleNotificationClick = (notification: NotificationResponseDto) => {
         setIsOpen(false);
+
+        // 1. Nếu có targetUrl (backend thường trả về dạng /posts/{id})
         if (notification.targetUrl) {
-            navigate(notification.targetUrl);
-        } else {
-            navigate(`/notifications/${notification.id}`);
+            const url = notification.targetUrl.trim();
+
+            // Nếu là external link (http/https) thì mở tab mới
+            if (url.startsWith('http')) {
+                window.open(url, '_blank', 'noopener,noreferrer');
+                return;
+            }
+
+            // Chuẩn hóa: chuyển /posts/... thành /post/... (route frontend)
+            let normalized = url.startsWith('/posts/')
+                ? url.replace('/posts/', '/post/')
+                : url;
+
+            // Đảm bảo có dấu '/' ở đầu
+            if (!normalized.startsWith('/')) {
+                normalized = '/' + normalized;
+            }
+
+            navigate(normalized);
+            return;
         }
+
+        // 2. Fallback: nếu có relatedEntityId → coi như ID bài viết
+        if (notification.relatedEntityId) {
+            navigate(`/post/${notification.relatedEntityId}`);
+            return;
+        }
+
+        // 3. Cuối cùng, chuyển đến trang chi tiết thông báo (nếu có route tương ứng)
+        navigate(`/notifications/${notification.id}`);
     };
 
     return (
@@ -47,14 +75,18 @@ const NotificationDropdown: React.FC = () => {
                     <div className="flex gap-1 px-4 py-2 border-b border-gray-100 bg-gray-50/50">
                         <button
                             onClick={() => setFilter({ unreadOnly: true })}
-                            className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${filter.unreadOnly ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-200'
+                            className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${filter.unreadOnly
+                                    ? 'bg-blue-600 text-white'
+                                    : 'text-gray-600 hover:bg-gray-200'
                                 }`}
                         >
                             Chưa đọc
                         </button>
                         <button
                             onClick={() => setFilter({})}
-                            className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${!filter.unreadOnly && !filter.type ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-200'
+                            className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${!filter.unreadOnly && !filter.type
+                                    ? 'bg-blue-600 text-white'
+                                    : 'text-gray-600 hover:bg-gray-200'
                                 }`}
                         >
                             Tất cả

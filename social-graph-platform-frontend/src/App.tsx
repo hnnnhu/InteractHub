@@ -44,6 +44,9 @@ const AdminUserDetailPage = React.lazy(() => import('./pages/admin/AdminUserDeta
 const AdminPostsPage = React.lazy(() => import('./pages/admin/AdminPostsPage'));
 const AdminReportsPage = React.lazy(() => import('./pages/admin/AdminReportsPage'));
 
+// THÊM: PostPage (chi tiết bài viết từ thông báo)
+const PostPage = React.lazy(() => import('./pages/PostPage'));
+
 const queryClient = new QueryClient({
     defaultOptions: {
         queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 5 * 60 * 1000 },
@@ -66,7 +69,6 @@ const RootRedirect = () => {
     if (!isInitialized) return <SuspenseFallback />;
     if (!isAuthenticated) return <Navigate to="/login" replace />;
 
-    // Nếu đã đăng nhập, điều hướng dựa trên role
     if (roles?.includes('Admin')) {
         return <Navigate to="/admin" replace />;
     }
@@ -82,8 +84,6 @@ const PublicRoute = () => {
     if (!isInitialized) return <SuspenseFallback />;
 
     if (isAuthenticated) {
-        // Nếu người dùng đã đăng nhập mà vẫn cố vào các trang public (login, register),
-        // thì chuyển hướng họ về đúng trang dựa trên role
         if (roles?.includes('Admin')) {
             return <Navigate to="/admin" replace />;
         }
@@ -146,6 +146,10 @@ const AppRoutes = () => (
                     <Route path="/profile" element={<ProfilePage />} />
                     <Route path="/profile/me" element={<Navigate to="/profile" replace />} />
                     <Route path="/profile/:username" element={<ProfilePage />} />
+
+                    {/* THÊM: Route xem chi tiết bài viết */}
+                    <Route path="/post/:id" element={<PostPage />} />
+
                     <Route path="/settings/profile" element={<EditProfilePage />} />
                     <Route path="/settings" element={<SettingsLayout />}>
                         <Route index element={<Navigate to="/settings/privacy" replace />} />

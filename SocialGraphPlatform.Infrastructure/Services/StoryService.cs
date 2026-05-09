@@ -193,9 +193,9 @@ public class StoryService : IStoryService
     }
 
     // 6. Đánh dấu story đã xem (ĐÃ SỬA: dùng GetStoryForUpdateAsync)
+    // 6. Đánh dấu story đã xem
     public async Task<ApiResponse> MarkStoryAsViewedAsync(Guid currentUserId, Guid storyId)
     {
-        // ✅ Dùng GetStoryForUpdateAsync để entity được tracked
         var story = await _storyRepository.GetStoryForUpdateAsync(storyId);
         if (story == null || !story.IsActive())
             return ApiResponse.NotFound("Story không tồn tại hoặc đã hết hạn");
@@ -206,7 +206,13 @@ public class StoryService : IStoryService
         if (story.Views.Any(v => v.ViewerId == currentUserId))
             return ApiResponse.Ok("Đã xem trước đó");
 
-        story.AddView(currentUserId);
+        // 1. Lấy ra chính cái object StoryView vừa được tạo
+        var newView = story.AddView(currentUserId);
+
+        // 2. ÉP THẲNG VÀO DATABASE (Bỏ qua cơ chế tracking lằng nhằng của list)
+        await _storyRepository.AddStoryViewAsync(newView);
+
+        // 3. Lưu lại
         await _storyRepository.SaveChangesAsync();
 
         return ApiResponse.Ok("Đã ghi nhận lượt xem");

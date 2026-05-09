@@ -104,5 +104,10 @@ public class StoryRepository : GenericRepository<Story>, IStoryRepository
             .Include(s => s.Views)
             .FirstOrDefaultAsync(s => s.Id == storyId && !s.IsDeleted);
     }
+    public async Task AddStoryViewAsync(StoryView storyView)
+    {
+        // AddAsync sẽ chèn ép EF Core đánh dấu đây là 1 bản ghi mới cần INSERT
+        await _context.StoryViews.AddAsync(storyView);
+    }
 
 }

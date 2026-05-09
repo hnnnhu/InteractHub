@@ -63,4 +63,8 @@ public interface IStoryRepository : IGenericRepository<Story>
     Task<Dictionary<Guid, int>> GetViewCountsAsync(IEnumerable<Guid> storyIds);
 
     Task<Story?> GetStoryForUpdateAsync(Guid storyId);
+    /// <summary>
+    /// Thêm trực tiếp một lượt xem vào Database
+    /// </summary>
+    Task AddStoryViewAsync(StoryView storyView);
 }

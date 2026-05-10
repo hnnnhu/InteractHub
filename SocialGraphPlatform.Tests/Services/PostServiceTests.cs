@@ -164,7 +164,6 @@ namespace SocialGraphPlatform.Tests.Services
         public async Task SearchPosts_WhenKeywordIsEmpty_ShouldReturnNewsFeed()
         {
             var userId = Guid.NewGuid();
-            // Mock GetNewsFeedAsync to return empty feed
             var emptyPaged = new PagedResult<Post>(new List<Post>(), 1, 10, 0);
             _postRepoMock.Setup(r => r.GetNewsFeedAsync(userId, 1, 10)).ReturnsAsync(emptyPaged);
 
@@ -172,6 +171,44 @@ namespace SocialGraphPlatform.Tests.Services
 
             Assert.True(result.IsSuccess);
             _postRepoMock.Verify(r => r.SearchPostsByKeywordAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task GetUserPosts_ShouldReturnPagedResult()
+        {
+            // Arrange
+            var currentUserId = Guid.NewGuid();
+            var targetUserId = Guid.NewGuid();
+            var emptyPaged = new PagedResult<Post>(new List<Post>(), 1, 10, 0);
+            _postRepoMock.Setup(r => r.GetUserPostsAsync(targetUserId, 1, 10))
+                         .ReturnsAsync(emptyPaged);
+
+            // Act
+            var result = await _postService.GetUserPostsAsync(currentUserId, targetUserId, 1, 10);
+
+            // Assert
+            Assert.True(result.IsSuccess);
+            Assert.NotNull(result.Data);
+            Assert.Equal(0, result.Data.TotalCount);
+        }
+
+        [Fact]
+        public async Task SearchPosts_WithKeyword_ShouldReturnFilteredResults()
+        {
+            // Arrange
+            var currentUserId = Guid.NewGuid();
+            var keyword = "test";
+            var pagedPosts = new PagedResult<Post>(new List<Post>(), 1, 10, 1);
+            _postRepoMock.Setup(r => r.SearchPostsByKeywordAsync(currentUserId, keyword, 1, 10))
+                         .ReturnsAsync(pagedPosts);
+
+            // Act
+            var result = await _postService.SearchPostsAsync(currentUserId, keyword, 1, 10);
+
+            // Assert
+            Assert.True(result.IsSuccess);
+            Assert.NotNull(result.Data);
+            Assert.Equal(1, result.Data.TotalCount);
         }
     }
 }

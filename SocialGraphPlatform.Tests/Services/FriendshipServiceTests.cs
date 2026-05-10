@@ -103,6 +103,21 @@ namespace SocialGraphPlatform.Tests.Services
             Assert.False(result.IsSuccess);
         }
 
+        [Fact]
+        public async Task AcceptFriendRequest_WhenAlreadyAccepted_ShouldFail()
+        {
+            var friendshipId = Guid.NewGuid();
+            var requesterId = Guid.NewGuid();
+            var addresseeId = Guid.NewGuid();
+            var friendship = new Friendship(requesterId, addresseeId);
+            friendship.Accept(addresseeId); // Đã chấp nhận
+            _friendshipRepoMock.Setup(r => r.GetByIdAsync(friendshipId)).ReturnsAsync(friendship);
+
+            var result = await _friendshipService.AcceptFriendRequestAsync(addresseeId, friendshipId);
+
+            Assert.False(result.IsSuccess);
+        }
+
         // ── RejectFriendRequest ────────────────────────────────────
 
         [Fact]
@@ -120,6 +135,20 @@ namespace SocialGraphPlatform.Tests.Services
             Assert.True(result.IsSuccess);
         }
 
+        [Fact]
+        public async Task RejectFriendRequest_ByRequester_ShouldFail()
+        {
+            var friendshipId = Guid.NewGuid();
+            var requesterId = Guid.NewGuid();
+            var addresseeId = Guid.NewGuid();
+            var friendship = new Friendship(requesterId, addresseeId);
+            _friendshipRepoMock.Setup(r => r.GetByIdAsync(friendshipId)).ReturnsAsync(friendship);
+
+            var result = await _friendshipService.RejectFriendRequestAsync(requesterId, friendshipId);
+
+            Assert.False(result.IsSuccess);
+        }
+
         // ── CancelFriendRequest ────────────────────────────────────
 
         [Fact]
@@ -135,6 +164,20 @@ namespace SocialGraphPlatform.Tests.Services
             var result = await _friendshipService.CancelFriendRequestAsync(requesterId, friendshipId);
 
             Assert.True(result.IsSuccess);
+        }
+
+        [Fact]
+        public async Task CancelFriendRequest_ByAddressee_ShouldFail()
+        {
+            var friendshipId = Guid.NewGuid();
+            var requesterId = Guid.NewGuid();
+            var addresseeId = Guid.NewGuid();
+            var friendship = new Friendship(requesterId, addresseeId);
+            _friendshipRepoMock.Setup(r => r.GetByIdAsync(friendshipId)).ReturnsAsync(friendship);
+
+            var result = await _friendshipService.CancelFriendRequestAsync(addresseeId, friendshipId);
+
+            Assert.False(result.IsSuccess);
         }
 
         // ── Unfriend ───────────────────────────────────────────────
@@ -185,6 +228,29 @@ namespace SocialGraphPlatform.Tests.Services
         }
 
         [Fact]
+        public async Task AddCloseFriend_WhenNotFriend_ShouldFail()
+        {
+            var userId = Guid.NewGuid();
+            var friendId = Guid.NewGuid();
+            _userRepoMock.Setup(r => r.GetByIdAsync(friendId)).ReturnsAsync(new User { Id = friendId });
+            _friendshipRepoMock.Setup(r => r.GetFriendshipAsync(userId, friendId)).ReturnsAsync((Friendship?)null);
+
+            var result = await _friendshipService.AddCloseFriendAsync(userId, friendId);
+
+            Assert.False(result.IsSuccess);
+        }
+
+        [Fact]
+        public async Task AddCloseFriend_ToSelf_ShouldFail()
+        {
+            var userId = Guid.NewGuid();
+
+            var result = await _friendshipService.AddCloseFriendAsync(userId, userId);
+
+            Assert.False(result.IsSuccess);
+        }
+
+        [Fact]
         public async Task RemoveCloseFriend_WhenCloseFriend_ShouldSucceed()
         {
             var userId = Guid.NewGuid();
@@ -198,6 +264,20 @@ namespace SocialGraphPlatform.Tests.Services
             var result = await _friendshipService.RemoveCloseFriendAsync(userId, friendId);
 
             Assert.True(result.IsSuccess);
+        }
+
+        [Fact]
+        public async Task RemoveCloseFriend_WhenNotCloseFriend_ShouldFail()
+        {
+            var userId = Guid.NewGuid();
+            var friendId = Guid.NewGuid();
+            var friendship = new Friendship(userId, friendId);
+            friendship.Accept(friendId); // là bạn nhưng chưa phải bạn thân
+            _friendshipRepoMock.Setup(r => r.GetFriendshipAsync(userId, friendId)).ReturnsAsync(friendship);
+
+            var result = await _friendshipService.RemoveCloseFriendAsync(userId, friendId);
+
+            Assert.False(result.IsSuccess);
         }
 
         // ── GetFriendCount ─────────────────────────────────────────
@@ -238,6 +318,49 @@ namespace SocialGraphPlatform.Tests.Services
             var result = await _friendshipService.GetFriendsAsync(userId, 1, 20);
 
             Assert.True(result.IsSuccess);
+        }
+
+        [Fact]
+        public async Task GetPendingRequests_ShouldReturnPagedResult()
+        {
+            var userId = Guid.NewGuid();
+            var paged = new PagedResult<FriendRequestResponseDto>(new List<FriendRequestResponseDto>(), 1, 20, 5);
+            _friendshipRepoMock.Setup(r => r.GetPendingRequestsAsync(userId, 1, 20)).ReturnsAsync(paged);
+
+            var result = await _friendshipService.GetPendingRequestsAsync(userId, 1, 20);
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal(5, result.Data.TotalCount);
+        }
+
+        [Fact]
+        public async Task GetSentRequests_ShouldReturnPagedResult()
+        {
+            var userId = Guid.NewGuid();
+            var paged = new PagedResult<SentFriendRequestResponseDto>(new List<SentFriendRequestResponseDto>(), 1, 20, 3);
+            _friendshipRepoMock.Setup(r => r.GetSentRequestsAsync(userId, 1, 20)).ReturnsAsync(paged);
+
+            var result = await _friendshipService.GetSentRequestsAsync(userId, 1, 20);
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal(3, result.Data.TotalCount);
+        }
+
+        [Fact]
+        public async Task GetFriendSuggestions_ShouldReturnList()
+        {
+            var userId = Guid.NewGuid();
+            var suggestions = new List<FriendSuggestionDto>
+            {
+                new FriendSuggestionDto { UserId = Guid.NewGuid(), UserName = "user1", MutualFriendsCount = 5 },
+                new FriendSuggestionDto { UserId = Guid.NewGuid(), UserName = "user2", MutualFriendsCount = 3 }
+            };
+            _friendshipRepoMock.Setup(r => r.GetFriendSuggestionsAsync(userId, 10)).ReturnsAsync(suggestions);
+
+            var result = await _friendshipService.GetFriendSuggestionsAsync(userId);
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal(2, result.Data.Count);
         }
     }
 }

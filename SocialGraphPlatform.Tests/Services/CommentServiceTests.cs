@@ -5,7 +5,10 @@ using SocialGraphPlatform.Application.Interfaces.Repositories;
 using SocialGraphPlatform.Application.Interfaces;
 using SocialGraphPlatform.Application.DTOs.Comment;
 using SocialGraphPlatform.Application.DTOs.Common;
+using SocialGraphPlatform.Application.DTOs.Notification;
 using SocialGraphPlatform.Domain.Entities;
+using SocialGraphPlatform.Domain.Entities.Base;   // 👈 vẫn cần cho BaseEntity
+using SocialGraphPlatform.Domain.Enums;
 
 namespace SocialGraphPlatform.Tests.Services
 {
@@ -30,6 +33,22 @@ namespace SocialGraphPlatform.Tests.Services
                 _userRepoMock.Object);
         }
 
+        // Hàm helper tạo User với Id và FullName (Id có setter public)
+        private static User CreateUser(Guid id, string fullName)
+        {
+            var user = new User(fullName);
+            user.Id = id;                     // IdentityUser<Guid> cho phép gán
+            return user;
+        }
+
+        // Hàm helper tạo Post với Id (Id là protected set của BaseEntity)
+        private static Post CreatePost(Guid postId, Guid ownerId, string content = "test")
+        {
+            var post = new Post(ownerId, content, PrivacyLevel.Public);
+            typeof(BaseEntity).GetProperty("Id")?.SetValue(post, postId);
+            return post;
+        }
+
         // ── CreateComment ─────────────────────────────────────────
 
         [Fact]
@@ -42,7 +61,7 @@ namespace SocialGraphPlatform.Tests.Services
             _postRepoMock.Setup(r => r.ExistsActiveAsync(postId)).ReturnsAsync(true);
             _commentRepoMock.Setup(r => r.AddAsync(It.IsAny<Comment>())).Returns(Task.CompletedTask);
             _commentRepoMock.Setup(r => r.SaveChangesAsync()).Returns(Task.CompletedTask);
-            _userRepoMock.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync(new User { Id = userId });
+            _userRepoMock.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync(CreateUser(userId, "Tester"));
 
             var result = await _commentService.CreateCommentAsync(userId, request);
 
@@ -60,6 +79,64 @@ namespace SocialGraphPlatform.Tests.Services
             var result = await _commentService.CreateCommentAsync(Guid.NewGuid(), new CreateCommentDto { PostId = postId, Content = "comment" });
 
             Assert.False(result.IsSuccess);
+        }
+
+        [Fact]
+        public async Task CreateComment_WithParentComment_ShouldCreateReply()
+        {
+            var userId = Guid.NewGuid();
+            var postId = Guid.NewGuid();
+            var parentCommentId = Guid.NewGuid();
+            var postOwnerId = Guid.NewGuid();
+            var request = new CreateCommentDto { PostId = postId, Content = "Reply!", ParentCommentId = parentCommentId };
+
+            _postRepoMock.Setup(r => r.ExistsActiveAsync(postId)).ReturnsAsync(true);
+            _commentRepoMock.Setup(r => r.AddAsync(It.IsAny<Comment>())).Returns(Task.CompletedTask);
+            _commentRepoMock.Setup(r => r.SaveChangesAsync()).Returns(Task.CompletedTask);
+            _userRepoMock.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync(CreateUser(userId, "Tester"));
+
+            // Tạo Post với Id
+            var post = CreatePost(postId, postOwnerId);
+            _postRepoMock.Setup(r => r.GetPostWithDetailsAsync(postId)).ReturnsAsync(post);
+
+            // Tạo comment cha
+            var parentComment = new Comment(postId, postOwnerId, "Original comment");
+            typeof(BaseEntity).GetProperty("Id")?.SetValue(parentComment, parentCommentId);
+            _commentRepoMock.Setup(r => r.GetByIdAsync(parentCommentId)).ReturnsAsync(parentComment);
+
+            // Setup notification
+            _notiServiceMock.Setup(n => n.CreateNotificationAsync(It.IsAny<CreateNotificationDto>()))
+                .ReturnsAsync(ApiResponse<NotificationResponseDto?>.Ok(null));
+
+            var result = await _commentService.CreateCommentAsync(userId, request);
+
+            Assert.True(result.IsSuccess);
+            // Kiểm tra thông báo được gửi đến chủ bài viết (postOwnerId) và chủ comment cha (cũng là postOwnerId) => 2 lần
+            _notiServiceMock.Verify(n => n.CreateNotificationAsync(It.Is<CreateNotificationDto>(dto => dto.ReceiverId == postOwnerId)), Times.Exactly(2));
+        }
+
+        [Fact]
+        public async Task CreateComment_WithMention_ShouldProcessMentions()
+        {
+            var userId = Guid.NewGuid();
+            var postId = Guid.NewGuid();
+            var mentionedUsername = "john_doe";
+            var mentionedUserId = Guid.NewGuid();
+            var request = new CreateCommentDto { PostId = postId, Content = $"Hello @{mentionedUsername}" };
+
+            _postRepoMock.Setup(r => r.ExistsActiveAsync(postId)).ReturnsAsync(true);
+            _commentRepoMock.Setup(r => r.AddAsync(It.IsAny<Comment>())).Returns(Task.CompletedTask);
+            _commentRepoMock.Setup(r => r.SaveChangesAsync()).Returns(Task.CompletedTask);
+            _userRepoMock.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync(CreateUser(userId, "Tester"));
+            _userRepoMock.Setup(r => r.GetUserByUsernameAsync(mentionedUsername))
+                .ReturnsAsync(CreateUser(mentionedUserId, mentionedUsername));
+            _notiServiceMock.Setup(n => n.CreateNotificationAsync(It.IsAny<CreateNotificationDto>()))
+                .ReturnsAsync(ApiResponse<NotificationResponseDto?>.Ok(null));
+
+            var result = await _commentService.CreateCommentAsync(userId, request);
+
+            Assert.True(result.IsSuccess);
+            _notiServiceMock.Verify(n => n.CreateNotificationAsync(It.Is<CreateNotificationDto>(dto => dto.ReceiverId == mentionedUserId)), Times.Once);
         }
 
         // ── UpdateComment ─────────────────────────────────────────
@@ -93,6 +170,19 @@ namespace SocialGraphPlatform.Tests.Services
             Assert.Equal("new content", comment.Content);
         }
 
+        [Fact]
+        public async Task UpdateComment_WhenCommentNotFound_ShouldReturnNotFound()
+        {
+            var commentId = Guid.NewGuid();
+            var userId = Guid.NewGuid();
+            _commentRepoMock.Setup(r => r.IsOwnerAsync(commentId, userId)).ReturnsAsync(true);
+            _commentRepoMock.Setup(r => r.GetByIdAsync(commentId)).ReturnsAsync((Comment?)null);
+
+            var result = await _commentService.UpdateCommentAsync(userId, commentId, new Application.DTOs.Comments.UpdateCommentDto { Content = "updated" });
+
+            Assert.False(result.IsSuccess);
+        }
+
         // ── DeleteComment ─────────────────────────────────────────
 
         [Fact]
@@ -122,6 +212,19 @@ namespace SocialGraphPlatform.Tests.Services
 
             Assert.True(result.IsSuccess);
             Assert.True(comment.IsDeleted);
+        }
+
+        [Fact]
+        public async Task DeleteComment_WhenCommentNotFound_ShouldReturnNotFound()
+        {
+            var commentId = Guid.NewGuid();
+            var userId = Guid.NewGuid();
+            _commentRepoMock.Setup(r => r.IsOwnerAsync(commentId, userId)).ReturnsAsync(true);
+            _commentRepoMock.Setup(r => r.GetByIdAsync(commentId)).ReturnsAsync((Comment?)null);
+
+            var result = await _commentService.DeleteCommentAsync(userId, commentId);
+
+            Assert.False(result.IsSuccess);
         }
 
         // ── GetCommentsByPostIdAsync ──────────────────────────────
@@ -166,6 +269,20 @@ namespace SocialGraphPlatform.Tests.Services
             var result = await _commentService.GetRepliesAsync(userId, parentId, 1, 10);
 
             Assert.True(result.IsSuccess);
+        }
+
+        [Fact]
+        public async Task GetReplies_WhenParentCommentNotExists_ShouldReturnEmpty()
+        {
+            var parentId = Guid.NewGuid();
+            var emptyPaged = new PagedResult<Comment>(new List<Comment>(), 1, 10, 0);
+            _commentRepoMock.Setup(r => r.GetRepliesAsync(parentId, 1, 10)).ReturnsAsync(emptyPaged);
+            _commentRepoMock.Setup(r => r.GetReplyCountsAsync(It.IsAny<List<Guid>>())).ReturnsAsync(new Dictionary<Guid, int>());
+
+            var result = await _commentService.GetRepliesAsync(Guid.NewGuid(), parentId, 1, 10);
+
+            Assert.True(result.IsSuccess);
+            Assert.Empty(result.Data!.Items);
         }
     }
 }

@@ -8,7 +8,7 @@
 ## 🔗 Demo trực tuyến
 
 **🌍 Public Website:**  
-👉 [https://interact-hub-git-main-hnnnhus-projects.vercel.app/login](https://interact-hub-git-main-hnnnhus-projects.vercel.app/login)
+👉 [https://interact-hub-git-main-hnnnhus-projects.vercel.app/login](https://interact-hub-git-main-hnnnhus-projects.vercel.app/
 
 > Frontend được deploy trên **Vercel**. Backend API chạy trên **Railway** (PostgreSQL).
 
